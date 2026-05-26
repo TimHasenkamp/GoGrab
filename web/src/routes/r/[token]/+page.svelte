@@ -21,18 +21,19 @@
   onMount(async () => {
     const hash = location.hash.startsWith('#') ? location.hash.slice(1) : '';
     if (!hash) {
-      keyError = 'This link is missing the decryption key. Please ask the sender to resend it.';
+      keyError =
+        'Dieser Link enthält keinen Verschlüsselungs-Schlüssel. Bitte den Absender, den Link erneut zu schicken.';
     } else {
       try {
         key = await importKeyB64url(hash);
       } catch {
-        keyError = 'The decryption key in this link is malformed.';
+        keyError = 'Der Schlüssel in diesem Link ist ungültig.';
       }
     }
     try {
       meta = await publicApi.meta(token);
     } catch (e) {
-      loadError = (e as ApiError).message || 'request not found';
+      loadError = (e as ApiError).message || 'Anfrage nicht gefunden';
     } finally {
       loading = false;
     }
@@ -49,7 +50,7 @@
       done = true;
       secret = '';
     } catch (e) {
-      submitError = (e as ApiError).message || 'submit failed';
+      submitError = (e as ApiError).message || 'Senden fehlgeschlagen';
     } finally {
       submitting = false;
     }
@@ -57,7 +58,7 @@
 </script>
 
 <svelte:head>
-  <title>GoGrab</title>
+  <title>GoGrab — Geheimnis übermitteln</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 
@@ -65,59 +66,63 @@
   <h1>GoGrab</h1>
 
   {#if loading}
-    <p class="muted">Loading…</p>
+    <p class="muted">Lade …</p>
   {:else if loadError}
     <div class="card error">
-      <h2>Unavailable</h2>
+      <h2>Nicht verfügbar</h2>
       <p>{loadError}</p>
     </div>
   {:else if !meta}
-    <p class="muted">No data.</p>
+    <p class="muted">Keine Daten.</p>
   {:else if keyError}
     <div class="card error">
-      <h2>Missing key</h2>
+      <h2>Schlüssel fehlt</h2>
       <p>{keyError}</p>
     </div>
   {:else if meta.status === 'expired' || new Date(meta.expires_at) < new Date()}
     <div class="card error">
-      <h2>Expired</h2>
-      <p>This request has expired and no longer accepts submissions.</p>
+      <h2>Abgelaufen</h2>
+      <p>Diese Anfrage ist abgelaufen und akzeptiert keine Einreichungen mehr.</p>
     </div>
   {:else if meta.status !== 'pending'}
     <div class="card success">
-      <h2>Already submitted</h2>
-      <p>A secret has already been submitted for this request.</p>
+      <h2>Bereits eingereicht</h2>
+      <p>Für diese Anfrage wurde bereits ein Geheimnis eingereicht.</p>
     </div>
   {:else if done}
     <div class="card success">
-      <h2>Submitted</h2>
-      <p>Your secret was encrypted in your browser and sent. You can close this tab.</p>
+      <h2>Übermittelt</h2>
+      <p>
+        Dein Geheimnis wurde in deinem Browser verschlüsselt und sicher gesendet. Du kannst dieses
+        Tab jetzt schließen.
+      </p>
     </div>
   {:else}
     <div class="card">
       <p class="desc">{meta.description}</p>
       <form onsubmit={submit}>
-        <label for="secret">Your secret</label>
+        <label for="secret">Dein Geheimnis</label>
         <textarea
           id="secret"
           required
           rows="6"
           maxlength="32000"
           bind:value={secret}
-          placeholder="Enter the value you were asked to provide…"
+          placeholder="Bitte den angefragten Wert eingeben …"
         ></textarea>
         {#if submitError}<p class="error-text">{submitError}</p>{/if}
         <button type="submit" disabled={submitting || !secret}>
-          {submitting ? 'Encrypting & sending…' : 'Submit securely'}
+          {submitting ? 'Verschlüssele & sende …' : 'Sicher übermitteln'}
         </button>
       </form>
       <p class="note">
-        Your secret is encrypted in your browser before being sent. The server cannot read it.
+        Dein Eintrag wird direkt in deinem Browser verschlüsselt, bevor er gesendet wird. Der Server
+        kann den Inhalt nicht lesen.
       </p>
     </div>
   {/if}
 
-  <footer>Powered by GoGrab — end-to-end encrypted secret request.</footer>
+  <footer>Powered by GoGrab — Ende-zu-Ende verschlüsselte Geheimnis-Übermittlung.</footer>
 </main>
 
 <style>

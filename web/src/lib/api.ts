@@ -73,3 +73,56 @@ export const publicApi = {
       iv_b64
     })
 };
+
+// --- WebAuthn auth / unlock ---
+export interface AuthStatus {
+  has_credentials: boolean;
+  prf_salt_b64: string;
+  username: string;
+}
+
+export interface RegisterBeginResponse {
+  options: unknown;
+  session_token: string;
+  prf_salt_b64: string;
+}
+
+export interface LoginBeginResponse {
+  options: unknown;
+  session_token: string;
+  prf_salt_b64: string;
+}
+
+export interface LoginFinishResponse {
+  credential_id_b64: string;
+  wrapped_master_b64: string;
+  wrap_iv_b64: string;
+}
+
+export interface CredentialSummary {
+  id: string;
+  label: string;
+  transports: string[];
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export const authApi = {
+  status: () => call<AuthStatus>('GET', '/api/admin/auth/status'),
+  registerBegin: () =>
+    call<RegisterBeginResponse>('POST', '/api/admin/auth/register/begin', {}),
+  registerFinish: (body: {
+    credential_response: unknown;
+    session_token: string;
+    label: string;
+    wrapped_master_b64: string;
+    wrap_iv_b64: string;
+  }) => call<CredentialSummary>('POST', '/api/admin/auth/register/finish', body),
+  loginBegin: () => call<LoginBeginResponse>('POST', '/api/admin/auth/login/begin', {}),
+  loginFinish: (body: { credential_response: unknown; session_token: string }) =>
+    call<LoginFinishResponse>('POST', '/api/admin/auth/login/finish', body),
+  listCredentials: () =>
+    call<CredentialSummary[]>('GET', '/api/admin/auth/credentials'),
+  deleteCredential: (id: string) =>
+    call<void>('DELETE', `/api/admin/auth/credentials/${encodeURIComponent(id)}`)
+};
