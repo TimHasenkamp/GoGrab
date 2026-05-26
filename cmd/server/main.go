@@ -25,6 +25,7 @@ import (
 	"github.com/timhasenkamp/gograb/internal/db"
 	"github.com/timhasenkamp/gograb/internal/handlers"
 	"github.com/timhasenkamp/gograb/internal/notify"
+	gogwebauthn "github.com/timhasenkamp/gograb/internal/webauthn"
 	"github.com/timhasenkamp/gograb/web"
 )
 
@@ -63,6 +64,18 @@ func run() error {
 
 	auditLog := audit.New(queries, log)
 	deps := handlers.New(queries, notifier, auditLog, log, cfg.DefaultTTL, cfg.MaxCiphertextBytes)
+
+	waSvc, err := gogwebauthn.New(gogwebauthn.Config{
+		RPDisplayName: cfg.RPDisplayName,
+		RPID:          cfg.RPID,
+		RPOrigins:     cfg.RPOrigins,
+		SessionSecret: cfg.SessionSecret,
+	})
+	if err != nil {
+		return fmt.Errorf("init webauthn: %w", err)
+	}
+	deps.WithAuth(&handlers.AuthDeps{WebAuthn: waSvc})
+	log.Info("webauthn ready", "rp_id", cfg.RPID, "origins", cfg.RPOrigins)
 	mux := buildRouter(cfg, deps, log)
 
 	srv := &http.Server{
@@ -122,6 +135,15 @@ func buildRouter(cfg config.Config, deps *handlers.Deps, log *slog.Logger) http.
 	mux.Handle("GET /api/admin/requests/{id}", admin(http.HandlerFunc(deps.AdminGet)))
 	mux.Handle("POST /api/admin/requests/{id}/retrieve", admin(http.HandlerFunc(deps.AdminRetrieve)))
 	mux.Handle("DELETE /api/admin/requests/{id}", admin(http.HandlerFunc(deps.AdminDelete)))
+
+	// WebAuthn / unlock ceremony endpoints (forward-auth still required)
+	mux.Handle("GET /api/admin/auth/status", admin(http.HandlerFunc(deps.AuthStatus)))
+	mux.Handle("POST /api/admin/auth/register/begin", admin(http.HandlerFunc(deps.AuthRegisterBegin)))
+	mux.Handle("POST /api/admin/auth/register/finish", admin(http.HandlerFunc(deps.AuthRegisterFinish)))
+	mux.Handle("POST /api/admin/auth/login/begin", admin(http.HandlerFunc(deps.AuthLoginBegin)))
+	mux.Handle("POST /api/admin/auth/login/finish", admin(http.HandlerFunc(deps.AuthLoginFinish)))
+	mux.Handle("GET /api/admin/auth/credentials", admin(http.HandlerFunc(deps.AuthListCredentials)))
+	mux.Handle("DELETE /api/admin/auth/credentials/{id}", admin(http.HandlerFunc(deps.AuthDeleteCredential)))
 
 	// --- healthcheck ---
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {

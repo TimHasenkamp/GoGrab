@@ -3,25 +3,34 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type Config struct {
-	ListenAddr          string
-	PublicBaseURL       string
-	LogLevel            string
-	TrustedProxy        bool
-	DatabaseURL         string
-	DefaultTTL          time.Duration
-	MaxCiphertextBytes  int
-	RatePerMin          int
-	RateBurst           int
-	NotifyWebhookURL    string
+	ListenAddr           string
+	PublicBaseURL        string
+	LogLevel             string
+	TrustedProxy         bool
+	DatabaseURL          string
+	DefaultTTL           time.Duration
+	MaxCiphertextBytes   int
+	RatePerMin           int
+	RateBurst            int
+	NotifyWebhookURL     string
 	NotifyWebhookTimeout time.Duration
-	DevUser             string // empty unless GOGRAB_DEV_USER is set
+	DevUser              string // empty unless GOGRAB_DEV_USER is set
+
+	// WebAuthn / session unlock
+	RPDisplayName string   // "GoGrab"
+	RPID          string   // e.g. "gograb.example.com" or "localhost" for dev
+	RPOrigins     []string // e.g. ["https://gograb.example.com"] or dev origins
+	SessionSecret []byte   // 32 random bytes for WebAuthn session-token AES key
 }
 
 func Load() (Config, error) {
@@ -56,6 +65,41 @@ func Load() (Config, error) {
 		return c, err
 	}
 	c.NotifyWebhookTimeout = time.Duration(secs) * time.Second
+
+	// WebAuthn relying party. RPID must match the registrable domain. For dev
+	// (vite at localhost:5173 proxying to :8080) RPID="localhost" works.
+	c.RPDisplayName = env("GOGRAB_RP_DISPLAY_NAME", "GoGrab")
+	c.RPID = env("GOGRAB_RP_ID", "localhost")
+	if origins := env("GOGRAB_RP_ORIGINS", "http://localhost:5173,http://localhost:8080"); origins != "" {
+		for _, o := range strings.Split(origins, ",") {
+			o = strings.TrimSpace(o)
+			if o != "" {
+				c.RPOrigins = append(c.RPOrigins, o)
+			}
+		}
+	}
+
+	// 32-byte session secret. If unset, a random one is generated per process —
+	// in-flight WebAuthn ceremonies don't survive a restart, which is fine
+	// because the begin/finish window is seconds long.
+	if v := os.Getenv("GOGRAB_SESSION_SECRET"); v != "" {
+		raw, err := base64.RawURLEncoding.DecodeString(v)
+		if err != nil {
+			raw, err = base64.StdEncoding.DecodeString(v)
+		}
+		if err != nil {
+			return c, fmt.Errorf("GOGRAB_SESSION_SECRET: invalid base64: %w", err)
+		}
+		if len(raw) != 32 {
+			return c, fmt.Errorf("GOGRAB_SESSION_SECRET: need 32 bytes, got %d", len(raw))
+		}
+		c.SessionSecret = raw
+	} else {
+		c.SessionSecret = make([]byte, 32)
+		if _, err := rand.Read(c.SessionSecret); err != nil {
+			return c, fmt.Errorf("gen session secret: %w", err)
+		}
+	}
 
 	if c.DatabaseURL == "" {
 		return c, fmt.Errorf("GOGRAB_DATABASE_URL is required")

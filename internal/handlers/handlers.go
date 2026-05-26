@@ -32,6 +32,9 @@ type Deps struct {
 	Log                *slog.Logger
 	DefaultTTL         time.Duration
 	MaxCiphertextBytes int
+
+	// auth is attached by WithAuth once the WebAuthn service is constructed.
+	auth *AuthDeps
 }
 
 func New(
