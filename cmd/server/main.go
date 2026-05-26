@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/time/rate"
 
+	"github.com/timhasenkamp/gograb/internal/audit"
 	"github.com/timhasenkamp/gograb/internal/auth"
 	"github.com/timhasenkamp/gograb/internal/config"
 	"github.com/timhasenkamp/gograb/internal/db"
@@ -60,7 +61,8 @@ func run() error {
 		log.Info("notify webhook enabled")
 	}
 
-	deps := handlers.New(queries, notifier, log, cfg.DefaultTTL, cfg.MaxCiphertextBytes)
+	auditLog := audit.New(queries, log)
+	deps := handlers.New(queries, notifier, auditLog, log, cfg.DefaultTTL, cfg.MaxCiphertextBytes)
 	mux := buildRouter(cfg, deps, log)
 
 	srv := &http.Server{

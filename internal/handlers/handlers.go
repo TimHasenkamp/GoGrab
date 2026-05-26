@@ -2,6 +2,8 @@
 package handlers
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -15,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/timhasenkamp/gograb/internal/audit"
 	"github.com/timhasenkamp/gograb/internal/auth"
 	"github.com/timhasenkamp/gograb/internal/db"
 	"github.com/timhasenkamp/gograb/internal/notify"
@@ -25,16 +28,24 @@ import (
 type Deps struct {
 	Queries            db.Querier
 	Notifier           notify.Notifier
+	Audit              *audit.Logger
 	Log                *slog.Logger
 	DefaultTTL         time.Duration
 	MaxCiphertextBytes int
 }
 
-// New returns a *Deps with the given configuration.
-func New(q db.Querier, n notify.Notifier, log *slog.Logger, defaultTTL time.Duration, maxCT int) *Deps {
+func New(
+	q db.Querier,
+	n notify.Notifier,
+	a *audit.Logger,
+	log *slog.Logger,
+	defaultTTL time.Duration,
+	maxCT int,
+) *Deps {
 	return &Deps{
 		Queries:            q,
 		Notifier:           n,
+		Audit:              a,
 		Log:                log,
 		DefaultTTL:         defaultTTL,
 		MaxCiphertextBytes: maxCT,
@@ -62,11 +73,31 @@ func readJSON(r *http.Request, max int64, v any) error {
 	if err := dec.Decode(v); err != nil {
 		return err
 	}
-	// reject trailing junk
 	if err := dec.Decode(&struct{}{}); err != io.EOF {
 		return fmt.Errorf("trailing data in body")
 	}
 	return nil
+}
+
+// getOrCreateOperator looks up the operator row for the Authentik user, or
+// creates one on first sight with a fresh 32-byte PRF salt.
+func (d *Deps) getOrCreateOperator(ctx context.Context, u auth.User) (db.Operator, error) {
+	op, err := d.Queries.GetOperatorByUsername(ctx, u.Username)
+	if err == nil {
+		return op, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return op, fmt.Errorf("get operator: %w", err)
+	}
+	salt := make([]byte, 32)
+	if _, err := rand.Read(salt); err != nil {
+		return op, fmt.Errorf("gen prf salt: %w", err)
+	}
+	return d.Queries.CreateOperator(ctx, db.CreateOperatorParams{
+		Username: u.Username,
+		Email:    u.Email,
+		PrfSalt:  salt,
+	})
 }
 
 // requestSummary is the JSON shape returned for admin endpoints.
@@ -101,9 +132,6 @@ func toSummary(r db.Request) requestSummary {
 	return s
 }
 
-// effectiveStatus folds expired-but-still-pending rows into "expired" for
-// API responses without rewriting them in the DB. The expiry sweeper handles
-// the persistent update.
 func effectiveStatus(r db.Request) string {
 	if r.Status == "pending" && r.ExpiresAt.Valid && time.Now().After(r.ExpiresAt.Time) {
 		return "expired"
@@ -116,6 +144,8 @@ func effectiveStatus(r db.Request) string {
 type createRequestBody struct {
 	Description    string `json:"description"`
 	ExpiresInHours int    `json:"expires_in_hours"`
+	WrappedKeyB64  string `json:"wrapped_key_b64"`
+	WrapIvB64      string `json:"wrap_iv_b64"`
 }
 
 type createRequestResponse struct {
@@ -130,6 +160,13 @@ func (d *Deps) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
 		return
 	}
+	op, err := d.getOrCreateOperator(r.Context(), u)
+	if err != nil {
+		d.Log.Error("operator lookup", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
+		return
+	}
+
 	var body createRequestBody
 	if err := readJSON(r, 4096, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
@@ -142,6 +179,16 @@ func (d *Deps) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.ExpiresInHours <= 0 || body.ExpiresInHours > 720 {
 		writeError(w, http.StatusBadRequest, "bad_request", "expires_in_hours must be 1..720")
+		return
+	}
+	wrappedKey, err := decodeB64(body.WrappedKeyB64)
+	if err != nil || len(wrappedKey) == 0 || len(wrappedKey) > 256 {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrapped_key_b64")
+		return
+	}
+	wrapIv, err := decodeB64(body.WrapIvB64)
+	if err != nil || len(wrapIv) != 12 {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrap_iv_b64 (need 12 bytes)")
 		return
 	}
 
@@ -158,14 +205,23 @@ func (d *Deps) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	req, err := d.Queries.CreateRequest(r.Context(), db.CreateRequestParams{
 		Token:       tok,
 		Description: body.Description,
-		CreatedBy:   u.Username,
+		OperatorID:  op.ID,
 		ExpiresAt:   expiresAt,
+		WrappedKey:  wrappedKey,
+		WrapIv:      wrapIv,
 	})
 	if err != nil {
 		d.Log.Error("create request", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal", "failed to create request")
 		return
 	}
+
+	d.Audit.Log(r.Context(), audit.Entry{
+		Actor: "operator:" + u.Username, Action: "request.create",
+		RequestID: &req.ID, OperatorID: &op.ID,
+		Request: r,
+	})
+
 	writeJSON(w, http.StatusCreated, createRequestResponse{
 		RequestID: req.ID.String(),
 		Token:     req.Token,
@@ -179,7 +235,13 @@ func (d *Deps) AdminList(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
 		return
 	}
-	rows, err := d.Queries.ListRequestsByUser(r.Context(), u.Username)
+	op, err := d.getOrCreateOperator(r.Context(), u)
+	if err != nil {
+		d.Log.Error("operator lookup", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
+		return
+	}
+	rows, err := d.Queries.ListRequestsByOperator(r.Context(), op.ID)
 	if err != nil {
 		d.Log.Error("list requests", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal", "failed to list")
@@ -201,7 +263,12 @@ func (d *Deps) AdminGet(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
 		return
 	}
-	id, err := parseUUID(r.PathValue("id"))
+	op, err := d.getOrCreateOperator(r.Context(), u)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid id")
 		return
@@ -216,14 +283,20 @@ func (d *Deps) AdminGet(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "failed to load")
 		return
 	}
-	if row.CreatedBy != u.Username {
-		// don't disclose existence
+	if row.OperatorID != op.ID {
 		writeError(w, http.StatusNotFound, "not_found", "request not found")
 		return
 	}
 	s := toSummary(row)
 	s.Status = effectiveStatus(row)
 	writeJSON(w, http.StatusOK, s)
+}
+
+type retrieveResponse struct {
+	CiphertextB64 string `json:"ciphertext_b64"`
+	IvB64         string `json:"iv_b64"`
+	WrappedKeyB64 string `json:"wrapped_key_b64"`
+	WrapIvB64     string `json:"wrap_iv_b64"`
 }
 
 // POST /api/admin/requests/{id}/retrieve
@@ -233,7 +306,12 @@ func (d *Deps) AdminRetrieve(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
 		return
 	}
-	id, err := parseUUID(r.PathValue("id"))
+	op, err := d.getOrCreateOperator(r.Context(), u)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid id")
 		return
@@ -244,23 +322,24 @@ func (d *Deps) AdminRetrieve(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "request not found")
 			return
 		}
-		d.Log.Error("get request", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal", "failed to load")
 		return
 	}
-	if row.CreatedBy != u.Username {
+	if row.OperatorID != op.ID {
 		writeError(w, http.StatusNotFound, "not_found", "request not found")
 		return
 	}
-	if row.Status != "submitted" || len(row.Ciphertext) == 0 || len(row.Iv) == 0 {
+	if row.Status != "submitted" || len(row.Ciphertext) == 0 || len(row.Iv) == 0 ||
+		len(row.WrappedKey) == 0 || len(row.WrapIv) == 0 {
 		writeError(w, http.StatusConflict, "not_ready", "no ciphertext to retrieve")
 		return
 	}
 
-	// Capture ciphertext first, THEN purge. If purge fails we still must not
-	// double-deliver, so we abort.
+	// Capture all crypto material first; only purge after we know we have it.
 	ct := append([]byte(nil), row.Ciphertext...)
 	iv := append([]byte(nil), row.Iv...)
+	wk := append([]byte(nil), row.WrappedKey...)
+	wiv := append([]byte(nil), row.WrapIv...)
 	if _, err := d.Queries.MarkRetrievedAndPurge(r.Context(), id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusConflict, "not_ready", "already retrieved")
@@ -270,9 +349,25 @@ func (d *Deps) AdminRetrieve(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "failed to retrieve")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{
-		"ciphertext_b64": base64.RawURLEncoding.EncodeToString(ct),
-		"iv_b64":         base64.RawURLEncoding.EncodeToString(iv),
+
+	d.Audit.Log(r.Context(), audit.Entry{
+		Actor: "operator:" + u.Username, Action: "request.retrieve",
+		RequestID: &row.ID, OperatorID: &op.ID,
+		Request: r,
+	})
+	d.Notifier.Dispatch(r.Context(), notify.Event{
+		Type:        "request.retrieved",
+		RequestID:   row.ID.String(),
+		Description: row.Description,
+		CreatedBy:   u.Username,
+		OccurredAt:  time.Now().UTC(),
+	})
+
+	writeJSON(w, http.StatusOK, retrieveResponse{
+		CiphertextB64: base64.RawURLEncoding.EncodeToString(ct),
+		IvB64:         base64.RawURLEncoding.EncodeToString(iv),
+		WrappedKeyB64: base64.RawURLEncoding.EncodeToString(wk),
+		WrapIvB64:     base64.RawURLEncoding.EncodeToString(wiv),
 	})
 }
 
@@ -283,16 +378,29 @@ func (d *Deps) AdminDelete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
 		return
 	}
-	id, err := parseUUID(r.PathValue("id"))
+	op, err := d.getOrCreateOperator(r.Context(), u)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid id")
 		return
 	}
-	if err := d.Queries.DeleteRequest(r.Context(), db.DeleteRequestParams{ID: id, CreatedBy: u.Username}); err != nil {
+	if err := d.Queries.DeleteRequest(r.Context(), db.DeleteRequestParams{
+		ID:         id,
+		OperatorID: op.ID,
+	}); err != nil {
 		d.Log.Error("delete request", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal", "failed to delete")
 		return
 	}
+	d.Audit.Log(r.Context(), audit.Entry{
+		Actor: "operator:" + u.Username, Action: "request.delete",
+		RequestID: &id, OperatorID: &op.ID,
+		Request: r,
+	})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -363,7 +471,6 @@ func (d *Deps) PublicSubmit(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			// either no such token, already submitted, or expired
 			writeError(w, http.StatusConflict, "not_accepting", "request not accepting submissions")
 			return
 		}
@@ -372,11 +479,16 @@ func (d *Deps) PublicSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	d.Audit.Log(r.Context(), audit.Entry{
+		Actor: "customer", Action: "request.submit",
+		RequestID: &row.ID, OperatorID: &row.OperatorID,
+		Request: r,
+	})
 	d.Notifier.Dispatch(r.Context(), notify.Event{
 		Type:        "request.submitted",
 		RequestID:   row.ID.String(),
 		Description: row.Description,
-		CreatedBy:   row.CreatedBy,
+		CreatedBy:   "", // operator username not joined here; populated only in retrieved
 		OccurredAt:  time.Now().UTC(),
 	})
 
@@ -384,10 +496,6 @@ func (d *Deps) PublicSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- small utils -----------------------------------------------------------
-
-func parseUUID(s string) (uuid.UUID, error) {
-	return uuid.Parse(s)
-}
 
 func decodeB64(s string) ([]byte, error) {
 	if b, err := base64.RawURLEncoding.DecodeString(s); err == nil {

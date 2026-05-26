@@ -7,60 +7,176 @@ package db
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countCredentialsByOperator = `-- name: CountCredentialsByOperator :one
+SELECT COUNT(*)::int AS n
+FROM webauthn_credentials
+WHERE operator_id = $1
+`
+
+func (q *Queries) CountCredentialsByOperator(ctx context.Context, operatorID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countCredentialsByOperator, operatorID)
+	var n int32
+	err := row.Scan(&n)
+	return n, err
+}
+
+const createCredential = `-- name: CreateCredential :one
+INSERT INTO webauthn_credentials (
+    operator_id, credential_id, public_key, sign_count, transports,
+    label, aaguid, wrapped_master, wrap_iv
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, operator_id, credential_id, public_key, sign_count, transports,
+          label, aaguid, wrapped_master, wrap_iv, created_at, last_used_at
+`
+
+type CreateCredentialParams struct {
+	OperatorID    uuid.UUID
+	CredentialID  []byte
+	PublicKey     []byte
+	SignCount     int64
+	Transports    []string
+	Label         string
+	Aaguid        []byte
+	WrappedMaster []byte
+	WrapIv        []byte
+}
+
+func (q *Queries) CreateCredential(ctx context.Context, arg CreateCredentialParams) (WebauthnCredential, error) {
+	row := q.db.QueryRow(ctx, createCredential,
+		arg.OperatorID,
+		arg.CredentialID,
+		arg.PublicKey,
+		arg.SignCount,
+		arg.Transports,
+		arg.Label,
+		arg.Aaguid,
+		arg.WrappedMaster,
+		arg.WrapIv,
+	)
+	var i WebauthnCredential
+	err := row.Scan(
+		&i.ID,
+		&i.OperatorID,
+		&i.CredentialID,
+		&i.PublicKey,
+		&i.SignCount,
+		&i.Transports,
+		&i.Label,
+		&i.Aaguid,
+		&i.WrappedMaster,
+		&i.WrapIv,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+	)
+	return i, err
+}
+
+const createOperator = `-- name: CreateOperator :one
+INSERT INTO operators (username, email, prf_salt)
+VALUES ($1, $2, $3)
+RETURNING id, username, email, prf_salt, created_at
+`
+
+type CreateOperatorParams struct {
+	Username string
+	Email    string
+	PrfSalt  []byte
+}
+
+func (q *Queries) CreateOperator(ctx context.Context, arg CreateOperatorParams) (Operator, error) {
+	row := q.db.QueryRow(ctx, createOperator, arg.Username, arg.Email, arg.PrfSalt)
+	var i Operator
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PrfSalt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createRequest = `-- name: CreateRequest :one
-INSERT INTO requests (token, description, created_by, expires_at)
-VALUES ($1, $2, $3, $4)
-RETURNING id, token, description, created_by, created_at, expires_at,
-          submitted_at, retrieved_at, ciphertext, iv, status
+
+INSERT INTO requests (
+    token, description, operator_id, expires_at, wrapped_key, wrap_iv
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, token, description, operator_id, created_at, expires_at,
+          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
 `
 
 type CreateRequestParams struct {
 	Token       string
 	Description string
-	CreatedBy   string
+	OperatorID  uuid.UUID
 	ExpiresAt   pgtype.Timestamptz
+	WrappedKey  []byte
+	WrapIv      []byte
 }
 
+// =================== requests ===================
 func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (Request, error) {
 	row := q.db.QueryRow(ctx, createRequest,
 		arg.Token,
 		arg.Description,
-		arg.CreatedBy,
+		arg.OperatorID,
 		arg.ExpiresAt,
+		arg.WrappedKey,
+		arg.WrapIv,
 	)
 	var i Request
 	err := row.Scan(
 		&i.ID,
 		&i.Token,
 		&i.Description,
-		&i.CreatedBy,
+		&i.OperatorID,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.SubmittedAt,
 		&i.RetrievedAt,
 		&i.Ciphertext,
 		&i.Iv,
+		&i.WrappedKey,
+		&i.WrapIv,
 		&i.Status,
 	)
 	return i, err
 }
 
+const deleteCredential = `-- name: DeleteCredential :exec
+DELETE FROM webauthn_credentials
+WHERE id = $1 AND operator_id = $2
+`
+
+type DeleteCredentialParams struct {
+	ID         uuid.UUID
+	OperatorID uuid.UUID
+}
+
+func (q *Queries) DeleteCredential(ctx context.Context, arg DeleteCredentialParams) error {
+	_, err := q.db.Exec(ctx, deleteCredential, arg.ID, arg.OperatorID)
+	return err
+}
+
 const deleteRequest = `-- name: DeleteRequest :exec
-DELETE FROM requests WHERE id = $1 AND created_by = $2
+DELETE FROM requests WHERE id = $1 AND operator_id = $2
 `
 
 type DeleteRequestParams struct {
-	ID        uuid.UUID
-	CreatedBy string
+	ID         uuid.UUID
+	OperatorID uuid.UUID
 }
 
 func (q *Queries) DeleteRequest(ctx context.Context, arg DeleteRequestParams) error {
-	_, err := q.db.Exec(ctx, deleteRequest, arg.ID, arg.CreatedBy)
+	_, err := q.db.Exec(ctx, deleteRequest, arg.ID, arg.OperatorID)
 	return err
 }
 
@@ -79,9 +195,57 @@ func (q *Queries) ExpirePendingRequests(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const getCredentialByCredentialID = `-- name: GetCredentialByCredentialID :one
+SELECT id, operator_id, credential_id, public_key, sign_count, transports,
+       label, aaguid, wrapped_master, wrap_iv, created_at, last_used_at
+FROM webauthn_credentials
+WHERE credential_id = $1
+`
+
+func (q *Queries) GetCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error) {
+	row := q.db.QueryRow(ctx, getCredentialByCredentialID, credentialID)
+	var i WebauthnCredential
+	err := row.Scan(
+		&i.ID,
+		&i.OperatorID,
+		&i.CredentialID,
+		&i.PublicKey,
+		&i.SignCount,
+		&i.Transports,
+		&i.Label,
+		&i.Aaguid,
+		&i.WrappedMaster,
+		&i.WrapIv,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+	)
+	return i, err
+}
+
+const getOperatorByUsername = `-- name: GetOperatorByUsername :one
+
+SELECT id, username, email, prf_salt, created_at
+FROM operators
+WHERE username = $1
+`
+
+// =================== operators ===================
+func (q *Queries) GetOperatorByUsername(ctx context.Context, username string) (Operator, error) {
+	row := q.db.QueryRow(ctx, getOperatorByUsername, username)
+	var i Operator
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PrfSalt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getRequestByID = `-- name: GetRequestByID :one
-SELECT id, token, description, created_by, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, status
+SELECT id, token, description, operator_id, created_at, expires_at,
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
 FROM requests
 WHERE id = $1
 `
@@ -93,21 +257,23 @@ func (q *Queries) GetRequestByID(ctx context.Context, id uuid.UUID) (Request, er
 		&i.ID,
 		&i.Token,
 		&i.Description,
-		&i.CreatedBy,
+		&i.OperatorID,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.SubmittedAt,
 		&i.RetrievedAt,
 		&i.Ciphertext,
 		&i.Iv,
+		&i.WrappedKey,
+		&i.WrapIv,
 		&i.Status,
 	)
 	return i, err
 }
 
 const getRequestByToken = `-- name: GetRequestByToken :one
-SELECT id, token, description, created_by, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, status
+SELECT id, token, description, operator_id, created_at, expires_at,
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
 FROM requests
 WHERE token = $1
 `
@@ -119,29 +285,184 @@ func (q *Queries) GetRequestByToken(ctx context.Context, token string) (Request,
 		&i.ID,
 		&i.Token,
 		&i.Description,
-		&i.CreatedBy,
+		&i.OperatorID,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.SubmittedAt,
 		&i.RetrievedAt,
 		&i.Ciphertext,
 		&i.Iv,
+		&i.WrappedKey,
+		&i.WrapIv,
 		&i.Status,
 	)
 	return i, err
 }
 
-const listRequestsByUser = `-- name: ListRequestsByUser :many
-SELECT id, token, description, created_by, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, status
+const insertAuditLog = `-- name: InsertAuditLog :exec
+
+INSERT INTO audit_log (actor, action, request_id, operator_id, ip, user_agent, metadata)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+`
+
+type InsertAuditLogParams struct {
+	Actor      string
+	Action     string
+	RequestID  *uuid.UUID
+	OperatorID *uuid.UUID
+	Ip         *netip.Addr
+	UserAgent  *string
+	Metadata   []byte
+}
+
+// =================== audit log ===================
+func (q *Queries) InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error {
+	_, err := q.db.Exec(ctx, insertAuditLog,
+		arg.Actor,
+		arg.Action,
+		arg.RequestID,
+		arg.OperatorID,
+		arg.Ip,
+		arg.UserAgent,
+		arg.Metadata,
+	)
+	return err
+}
+
+const listAuditByOperator = `-- name: ListAuditByOperator :many
+SELECT id, occurred_at, actor, action, request_id, operator_id, ip, user_agent, metadata
+FROM audit_log
+WHERE operator_id = $1
+ORDER BY occurred_at DESC
+LIMIT $2
+`
+
+type ListAuditByOperatorParams struct {
+	OperatorID *uuid.UUID
+	Limit      int32
+}
+
+func (q *Queries) ListAuditByOperator(ctx context.Context, arg ListAuditByOperatorParams) ([]AuditLog, error) {
+	rows, err := q.db.Query(ctx, listAuditByOperator, arg.OperatorID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditLog{}
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.OccurredAt,
+			&i.Actor,
+			&i.Action,
+			&i.RequestID,
+			&i.OperatorID,
+			&i.Ip,
+			&i.UserAgent,
+			&i.Metadata,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditByRequest = `-- name: ListAuditByRequest :many
+SELECT id, occurred_at, actor, action, request_id, operator_id, ip, user_agent, metadata
+FROM audit_log
+WHERE request_id = $1
+ORDER BY occurred_at DESC
+`
+
+func (q *Queries) ListAuditByRequest(ctx context.Context, requestID *uuid.UUID) ([]AuditLog, error) {
+	rows, err := q.db.Query(ctx, listAuditByRequest, requestID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditLog{}
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.OccurredAt,
+			&i.Actor,
+			&i.Action,
+			&i.RequestID,
+			&i.OperatorID,
+			&i.Ip,
+			&i.UserAgent,
+			&i.Metadata,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCredentialsByOperator = `-- name: ListCredentialsByOperator :many
+
+SELECT id, operator_id, credential_id, public_key, sign_count, transports,
+       label, aaguid, wrapped_master, wrap_iv, created_at, last_used_at
+FROM webauthn_credentials
+WHERE operator_id = $1
+ORDER BY created_at ASC
+`
+
+// =================== webauthn credentials ===================
+func (q *Queries) ListCredentialsByOperator(ctx context.Context, operatorID uuid.UUID) ([]WebauthnCredential, error) {
+	rows, err := q.db.Query(ctx, listCredentialsByOperator, operatorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WebauthnCredential{}
+	for rows.Next() {
+		var i WebauthnCredential
+		if err := rows.Scan(
+			&i.ID,
+			&i.OperatorID,
+			&i.CredentialID,
+			&i.PublicKey,
+			&i.SignCount,
+			&i.Transports,
+			&i.Label,
+			&i.Aaguid,
+			&i.WrappedMaster,
+			&i.WrapIv,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestsByOperator = `-- name: ListRequestsByOperator :many
+SELECT id, token, description, operator_id, created_at, expires_at,
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
 FROM requests
-WHERE created_by = $1
+WHERE operator_id = $1
 ORDER BY created_at DESC
 LIMIT 200
 `
 
-func (q *Queries) ListRequestsByUser(ctx context.Context, createdBy string) ([]Request, error) {
-	rows, err := q.db.Query(ctx, listRequestsByUser, createdBy)
+func (q *Queries) ListRequestsByOperator(ctx context.Context, operatorID uuid.UUID) ([]Request, error) {
+	rows, err := q.db.Query(ctx, listRequestsByOperator, operatorID)
 	if err != nil {
 		return nil, err
 	}
@@ -153,13 +474,15 @@ func (q *Queries) ListRequestsByUser(ctx context.Context, createdBy string) ([]R
 			&i.ID,
 			&i.Token,
 			&i.Description,
-			&i.CreatedBy,
+			&i.OperatorID,
 			&i.CreatedAt,
 			&i.ExpiresAt,
 			&i.SubmittedAt,
 			&i.RetrievedAt,
 			&i.Ciphertext,
 			&i.Iv,
+			&i.WrappedKey,
+			&i.WrapIv,
 			&i.Status,
 		); err != nil {
 			return nil, err
@@ -177,10 +500,12 @@ UPDATE requests
 SET retrieved_at = now(),
     status = 'retrieved',
     ciphertext = NULL,
-    iv = NULL
+    iv = NULL,
+    wrapped_key = NULL,
+    wrap_iv = NULL
 WHERE id = $1
   AND status = 'submitted'
-RETURNING id, token, description, created_by, created_at, expires_at,
+RETURNING id, token, description, operator_id, created_at, expires_at,
           submitted_at, retrieved_at, status
 `
 
@@ -188,7 +513,7 @@ type MarkRetrievedAndPurgeRow struct {
 	ID          uuid.UUID
 	Token       string
 	Description string
-	CreatedBy   string
+	OperatorID  uuid.UUID
 	CreatedAt   pgtype.Timestamptz
 	ExpiresAt   pgtype.Timestamptz
 	SubmittedAt pgtype.Timestamptz
@@ -203,7 +528,7 @@ func (q *Queries) MarkRetrievedAndPurge(ctx context.Context, id uuid.UUID) (Mark
 		&i.ID,
 		&i.Token,
 		&i.Description,
-		&i.CreatedBy,
+		&i.OperatorID,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.SubmittedAt,
@@ -222,8 +547,8 @@ SET ciphertext = $2,
 WHERE token = $1
   AND status = 'pending'
   AND expires_at > now()
-RETURNING id, token, description, created_by, created_at, expires_at,
-          submitted_at, retrieved_at, ciphertext, iv, status
+RETURNING id, token, description, operator_id, created_at, expires_at,
+          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
 `
 
 type SubmitCiphertextParams struct {
@@ -239,14 +564,60 @@ func (q *Queries) SubmitCiphertext(ctx context.Context, arg SubmitCiphertextPara
 		&i.ID,
 		&i.Token,
 		&i.Description,
-		&i.CreatedBy,
+		&i.OperatorID,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.SubmittedAt,
 		&i.RetrievedAt,
 		&i.Ciphertext,
 		&i.Iv,
+		&i.WrappedKey,
+		&i.WrapIv,
 		&i.Status,
+	)
+	return i, err
+}
+
+const updateCredentialAfterUse = `-- name: UpdateCredentialAfterUse :exec
+UPDATE webauthn_credentials
+SET sign_count = $2,
+    last_used_at = now()
+WHERE id = $1
+`
+
+type UpdateCredentialAfterUseParams struct {
+	ID        uuid.UUID
+	SignCount int64
+}
+
+func (q *Queries) UpdateCredentialAfterUse(ctx context.Context, arg UpdateCredentialAfterUseParams) error {
+	_, err := q.db.Exec(ctx, updateCredentialAfterUse, arg.ID, arg.SignCount)
+	return err
+}
+
+const upsertOperator = `-- name: UpsertOperator :one
+INSERT INTO operators (username, email, prf_salt)
+VALUES ($1, $2, $3)
+ON CONFLICT (username) DO UPDATE
+  SET email = EXCLUDED.email
+RETURNING id, username, email, prf_salt, created_at
+`
+
+type UpsertOperatorParams struct {
+	Username string
+	Email    string
+	PrfSalt  []byte
+}
+
+func (q *Queries) UpsertOperator(ctx context.Context, arg UpsertOperatorParams) (Operator, error) {
+	row := q.db.QueryRow(ctx, upsertOperator, arg.Username, arg.Email, arg.PrfSalt)
+	var i Operator
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PrfSalt,
+		&i.CreatedAt,
 	)
 	return i, err
 }

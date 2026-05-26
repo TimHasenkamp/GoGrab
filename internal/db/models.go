@@ -5,20 +5,59 @@
 package db
 
 import (
+	"net/netip"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type AuditLog struct {
+	ID         int64
+	OccurredAt pgtype.Timestamptz
+	Actor      string
+	Action     string
+	RequestID  *uuid.UUID
+	OperatorID *uuid.UUID
+	Ip         *netip.Addr
+	UserAgent  *string
+	Metadata   []byte
+}
+
+type Operator struct {
+	ID        uuid.UUID
+	Username  string
+	Email     string
+	PrfSalt   []byte
+	CreatedAt pgtype.Timestamptz
+}
 
 type Request struct {
 	ID          uuid.UUID
 	Token       string
 	Description string
-	CreatedBy   string
+	OperatorID  uuid.UUID
 	CreatedAt   pgtype.Timestamptz
 	ExpiresAt   pgtype.Timestamptz
 	SubmittedAt pgtype.Timestamptz
 	RetrievedAt pgtype.Timestamptz
 	Ciphertext  []byte
 	Iv          []byte
+	WrappedKey  []byte
+	WrapIv      []byte
 	Status      string
+}
+
+type WebauthnCredential struct {
+	ID            uuid.UUID
+	OperatorID    uuid.UUID
+	CredentialID  []byte
+	PublicKey     []byte
+	SignCount     int64
+	Transports    []string
+	Label         string
+	Aaguid        []byte
+	WrappedMaster []byte
+	WrapIv        []byte
+	CreatedAt     pgtype.Timestamptz
+	LastUsedAt    pgtype.Timestamptz
 }

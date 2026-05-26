@@ -11,14 +11,30 @@ import (
 )
 
 type Querier interface {
+	CountCredentialsByOperator(ctx context.Context, operatorID uuid.UUID) (int32, error)
+	CreateCredential(ctx context.Context, arg CreateCredentialParams) (WebauthnCredential, error)
+	CreateOperator(ctx context.Context, arg CreateOperatorParams) (Operator, error)
+	// =================== requests ===================
 	CreateRequest(ctx context.Context, arg CreateRequestParams) (Request, error)
+	DeleteCredential(ctx context.Context, arg DeleteCredentialParams) error
 	DeleteRequest(ctx context.Context, arg DeleteRequestParams) error
 	ExpirePendingRequests(ctx context.Context) (int64, error)
+	GetCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error)
+	// =================== operators ===================
+	GetOperatorByUsername(ctx context.Context, username string) (Operator, error)
 	GetRequestByID(ctx context.Context, id uuid.UUID) (Request, error)
 	GetRequestByToken(ctx context.Context, token string) (Request, error)
-	ListRequestsByUser(ctx context.Context, createdBy string) ([]Request, error)
+	// =================== audit log ===================
+	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error
+	ListAuditByOperator(ctx context.Context, arg ListAuditByOperatorParams) ([]AuditLog, error)
+	ListAuditByRequest(ctx context.Context, requestID *uuid.UUID) ([]AuditLog, error)
+	// =================== webauthn credentials ===================
+	ListCredentialsByOperator(ctx context.Context, operatorID uuid.UUID) ([]WebauthnCredential, error)
+	ListRequestsByOperator(ctx context.Context, operatorID uuid.UUID) ([]Request, error)
 	MarkRetrievedAndPurge(ctx context.Context, id uuid.UUID) (MarkRetrievedAndPurgeRow, error)
 	SubmitCiphertext(ctx context.Context, arg SubmitCiphertextParams) (Request, error)
+	UpdateCredentialAfterUse(ctx context.Context, arg UpdateCredentialAfterUseParams) error
+	UpsertOperator(ctx context.Context, arg UpsertOperatorParams) (Operator, error)
 }
 
 var _ Querier = (*Queries)(nil)
