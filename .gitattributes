@@ -1,0 +1,14 @@
+# Enforce LF in the repo so Linux containers and Windows clones agree.
+* text=auto eol=lf
+
+# Binary-ish files
+*.png binary
+*.jpg binary
+*.svg text eol=lf
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Generated lockfiles — keep noise out of PR diffs
+web/package-lock.json -diff
+go.sum -diff

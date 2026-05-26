@@ -8,10 +8,11 @@ RUN npm ci --no-audit --no-fund --prefer-offline || npm install --no-audit --no-
 COPY web/ ./
 RUN npm run build
 
-# ---------- 2) Build the Go binary ----------
+# ---------- 2) Build the Go binary (cross-compiled per TARGETARCH) ----------
 FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS go-builder
 WORKDIR /src
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=arm64
+ARG TARGETARCH
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
