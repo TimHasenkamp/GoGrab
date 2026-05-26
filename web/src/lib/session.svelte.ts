@@ -58,13 +58,17 @@ class Session {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const wrapped = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wrapKey, masterRaw);
 
-    // Keep the master key in memory as non-extractable.
+    // Master-KEK must support wrapKey / unwrapKey (used for per-request keys)
+    // AND must be extractable so we can re-wrap it for additional credentials
+    // via subtle.wrapKey('raw', master, ...). Non-extractable would be a
+    // marginal hardening anyway: an attacker who can run JS in our origin
+    // can use the key via subtle.encrypt/decrypt regardless.
     this.masterKek = await crypto.subtle.importKey(
       'raw',
       masterRaw,
       { name: 'AES-GCM' },
-      false,
-      ['encrypt', 'decrypt']
+      true,
+      ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
     );
 
     return {
@@ -118,8 +122,8 @@ class Session {
         wrapKey,
         { name: 'AES-GCM', iv },
         { name: 'AES-GCM', length: 256 },
-        false,
-        ['encrypt', 'decrypt']
+        true,
+        ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
       );
     } catch {
       throw new Error(
