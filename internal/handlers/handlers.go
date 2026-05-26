@@ -105,14 +105,15 @@ func (d *Deps) getOrCreateOperator(ctx context.Context, u auth.User) (db.Operato
 
 // requestSummary is the JSON shape returned for admin endpoints.
 type requestSummary struct {
-	ID          string  `json:"id"`
-	Token       string  `json:"token"`
-	Description string  `json:"description"`
-	CreatedAt   string  `json:"created_at"`
-	ExpiresAt   string  `json:"expires_at"`
-	SubmittedAt *string `json:"submitted_at"`
-	RetrievedAt *string `json:"retrieved_at"`
-	Status      string  `json:"status"`
+	ID          string          `json:"id"`
+	Token       string          `json:"token"`
+	Description string          `json:"description"`
+	CreatedAt   string          `json:"created_at"`
+	ExpiresAt   string          `json:"expires_at"`
+	SubmittedAt *string         `json:"submitted_at"`
+	RetrievedAt *string         `json:"retrieved_at"`
+	Status      string          `json:"status"`
+	FormSchema  json.RawMessage `json:"form_schema,omitempty"`
 }
 
 func toSummary(r db.Request) requestSummary {
@@ -123,6 +124,7 @@ func toSummary(r db.Request) requestSummary {
 		CreatedAt:   r.CreatedAt.Time.UTC().Format(time.RFC3339),
 		ExpiresAt:   r.ExpiresAt.Time.UTC().Format(time.RFC3339),
 		Status:      r.Status,
+		FormSchema:  r.FormSchema,
 	}
 	if r.SubmittedAt.Valid {
 		t := r.SubmittedAt.Time.UTC().Format(time.RFC3339)
@@ -145,10 +147,11 @@ func effectiveStatus(r db.Request) string {
 // --- admin handlers --------------------------------------------------------
 
 type createRequestBody struct {
-	Description    string `json:"description"`
-	ExpiresInHours int    `json:"expires_in_hours"`
-	WrappedKeyB64  string `json:"wrapped_key_b64"`
-	WrapIvB64      string `json:"wrap_iv_b64"`
+	Description    string          `json:"description"`
+	ExpiresInHours int             `json:"expires_in_hours"`
+	WrappedKeyB64  string          `json:"wrapped_key_b64"`
+	WrapIvB64      string          `json:"wrap_iv_b64"`
+	FormSchema     json.RawMessage `json:"form_schema"`
 }
 
 type createRequestResponse struct {
@@ -194,6 +197,11 @@ func (d *Deps) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrap_iv_b64 (need 12 bytes)")
 		return
 	}
+	schemaBytes, _, err := ValidateFormSchema(body.FormSchema)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
 
 	tok, err := token.New()
 	if err != nil {
@@ -212,6 +220,7 @@ func (d *Deps) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:   expiresAt,
 		WrappedKey:  wrappedKey,
 		WrapIv:      wrapIv,
+		FormSchema:  schemaBytes,
 	})
 	if err != nil {
 		d.Log.Error("create request", "err", err)
@@ -410,9 +419,10 @@ func (d *Deps) AdminDelete(w http.ResponseWriter, r *http.Request) {
 // --- public handlers -------------------------------------------------------
 
 type publicMeta struct {
-	Description string `json:"description"`
-	ExpiresAt   string `json:"expires_at"`
-	Status      string `json:"status"`
+	Description string          `json:"description"`
+	ExpiresAt   string          `json:"expires_at"`
+	Status      string          `json:"status"`
+	FormSchema  json.RawMessage `json:"form_schema"`
 }
 
 // GET /api/requests/{token}/meta
@@ -436,6 +446,7 @@ func (d *Deps) PublicMeta(w http.ResponseWriter, r *http.Request) {
 		Description: row.Description,
 		ExpiresAt:   row.ExpiresAt.Time.UTC().Format(time.RFC3339),
 		Status:      effectiveStatus(row),
+		FormSchema:  row.FormSchema,
 	})
 }
 

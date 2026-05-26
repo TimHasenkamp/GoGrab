@@ -34,6 +34,7 @@ export interface AdminRequestSummary {
   submitted_at: string | null;
   retrieved_at: string | null;
   status: 'pending' | 'submitted' | 'retrieved' | 'expired';
+  form_schema?: import('./forms').FormField[];
 }
 
 export interface CreateRequestResponse {
@@ -56,6 +57,7 @@ export const adminApi = {
     expires_in_hours: number;
     wrapped_key_b64: string;
     wrap_iv_b64: string;
+    form_schema: import('./forms').FormField[];
   }) => call<CreateRequestResponse>('POST', '/api/admin/requests', body),
   retrieve: (id: string) =>
     call<RetrieveResponse>('POST', `/api/admin/requests/${encodeURIComponent(id)}/retrieve`),
@@ -68,6 +70,7 @@ export interface PublicMeta {
   description: string;
   expires_at: string;
   status: 'pending' | 'submitted' | 'retrieved' | 'expired';
+  form_schema: import('./forms').FormField[];
 }
 
 export const publicApi = {

@@ -60,27 +60,31 @@ WHERE id = $1 AND operator_id = $2;
 
 -- name: CreateRequest :one
 INSERT INTO requests (
-    token, description, operator_id, expires_at, wrapped_key, wrap_iv
+    token, description, operator_id, expires_at, wrapped_key, wrap_iv, form_schema
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, token, description, operator_id, created_at, expires_at,
-          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status;
+          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+          status, form_schema;
 
 -- name: GetRequestByToken :one
 SELECT id, token, description, operator_id, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+       status, form_schema
 FROM requests
 WHERE token = $1;
 
 -- name: GetRequestByID :one
 SELECT id, token, description, operator_id, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+       status, form_schema
 FROM requests
 WHERE id = $1;
 
 -- name: ListRequestsByOperator :many
 SELECT id, token, description, operator_id, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+       status, form_schema
 FROM requests
 WHERE operator_id = $1
 ORDER BY created_at DESC
@@ -96,7 +100,8 @@ WHERE token = $1
   AND status = 'pending'
   AND expires_at > now()
 RETURNING id, token, description, operator_id, created_at, expires_at,
-          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status;
+          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+          status, form_schema;
 
 -- name: MarkRetrievedAndPurge :one
 UPDATE requests

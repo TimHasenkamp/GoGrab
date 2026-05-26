@@ -45,6 +45,7 @@ type Request struct {
 	WrappedKey  []byte
 	WrapIv      []byte
 	Status      string
+	FormSchema  []byte
 }
 
 type WebauthnCredential struct {

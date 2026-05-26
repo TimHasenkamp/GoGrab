@@ -2,14 +2,81 @@
   import { adminApi, type ApiError } from '$lib/api';
   import { generateKey, exportKeyB64url } from '$lib/crypto';
   import { session } from '$lib/session.svelte';
+  import {
+    type FormField,
+    type FieldType,
+    fieldTypeLabel,
+    deriveFieldId,
+    defaultSchema,
+    MAX_FIELDS,
+    MAX_LABEL,
+    MAX_PLACEHOLDER
+  } from '$lib/forms';
 
   let description = $state('');
   let expiresInHours = $state(72);
+  let fields = $state<FormField[]>(defaultSchema());
   let submitting = $state(false);
   let error = $state<string | null>(null);
   let shareUrl = $state<string | null>(null);
   let requestId = $state<string | null>(null);
   let copied = $state(false);
+
+  function addField(type: FieldType) {
+    if (fields.length >= MAX_FIELDS) return;
+    const existing = new Set(fields.map((f) => f.id));
+    const defaultLabel = {
+      text: 'Text',
+      password: 'Passwort',
+      textarea: 'Notiz'
+    }[type];
+    const id = deriveFieldId(defaultLabel, existing);
+    fields = [...fields, { id, label: defaultLabel, type, placeholder: '' }];
+  }
+
+  function removeField(idx: number) {
+    if (fields.length <= 1) {
+      // keep at least one field
+      fields = defaultSchema();
+      return;
+    }
+    fields = fields.filter((_, i) => i !== idx);
+  }
+
+  function moveField(idx: number, delta: -1 | 1) {
+    const target = idx + delta;
+    if (target < 0 || target >= fields.length) return;
+    const next = fields.slice();
+    [next[idx], next[target]] = [next[target]!, next[idx]!];
+    fields = next;
+  }
+
+  function updateLabel(idx: number, label: string) {
+    const next = fields.slice();
+    const f = next[idx];
+    if (!f) return;
+    next[idx] = { ...f, label };
+    // re-derive id only when the user didn't touch the id and the label is being typed
+    const otherIds = new Set(next.filter((_, i) => i !== idx).map((x) => x.id));
+    next[idx] = { ...next[idx]!, id: deriveFieldId(label, otherIds) };
+    fields = next;
+  }
+
+  function updateType(idx: number, type: FieldType) {
+    const next = fields.slice();
+    const f = next[idx];
+    if (!f) return;
+    next[idx] = { ...f, type };
+    fields = next;
+  }
+
+  function updatePlaceholder(idx: number, placeholder: string) {
+    const next = fields.slice();
+    const f = next[idx];
+    if (!f) return;
+    next[idx] = { ...f, placeholder };
+    fields = next;
+  }
 
   const expiryPresets = [
     { hours: 1, label: '1 Stunde' },
@@ -39,7 +106,8 @@
         description: description.trim(),
         expires_in_hours: expiresInHours,
         wrapped_key_b64: wrappedKeyB64,
-        wrap_iv_b64: wrapIvB64
+        wrap_iv_b64: wrapIvB64,
+        form_schema: fields
       });
       requestId = res.request_id;
       shareUrl = `${location.origin}/r/${res.token}#${keyB64}`;
@@ -204,6 +272,133 @@
               />
               <span>h</span>
             </label>
+          </div>
+        </div>
+
+        <!-- Form builder -->
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <span class="text-sm font-medium text-slate-700">Formular</span>
+            <span class="text-xs text-slate-500">{fields.length} / {MAX_FIELDS} Felder</span>
+          </div>
+          <p class="mb-3 text-xs text-slate-500">
+            Bau zusammen, was der Kunde ausfüllen soll. Bei Passwort-Feldern bekommt er einen Generator angeboten.
+          </p>
+
+          <ul class="space-y-2">
+            {#each fields as f, idx (f.id + '-' + idx)}
+              <li class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div class="flex items-start gap-2">
+                  <div class="flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onclick={() => moveField(idx, -1)}
+                      disabled={idx === 0}
+                      class="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+                      title="Hoch"
+                      aria-label="Hoch"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15" /></svg>
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => moveField(idx, 1)}
+                      disabled={idx === fields.length - 1}
+                      class="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+                      title="Runter"
+                      aria-label="Runter"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                    </button>
+                  </div>
+
+                  <div class="grid flex-1 grid-cols-12 gap-2">
+                    <div class="col-span-12 sm:col-span-7">
+                      <label class="text-[11px] font-medium uppercase tracking-wide text-slate-500" for="label-{idx}">
+                        Label
+                      </label>
+                      <input
+                        id="label-{idx}"
+                        required
+                        maxlength={MAX_LABEL}
+                        value={f.label}
+                        oninput={(e) => updateLabel(idx, (e.currentTarget as HTMLInputElement).value)}
+                        class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        placeholder="z.B. WLAN-Passwort"
+                      />
+                    </div>
+                    <div class="col-span-12 sm:col-span-5">
+                      <label class="text-[11px] font-medium uppercase tracking-wide text-slate-500" for="type-{idx}">
+                        Typ
+                      </label>
+                      <select
+                        id="type-{idx}"
+                        value={f.type}
+                        onchange={(e) => updateType(idx, (e.currentTarget as HTMLSelectElement).value as FieldType)}
+                        class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                      >
+                        <option value="text">{fieldTypeLabel.text}</option>
+                        <option value="password">{fieldTypeLabel.password}</option>
+                        <option value="textarea">{fieldTypeLabel.textarea}</option>
+                      </select>
+                    </div>
+                    <div class="col-span-12">
+                      <label class="text-[11px] font-medium uppercase tracking-wide text-slate-500" for="ph-{idx}">
+                        Platzhalter <span class="font-normal lowercase text-slate-400">— optional, Hilfetext im leeren Feld</span>
+                      </label>
+                      <input
+                        id="ph-{idx}"
+                        maxlength={MAX_PLACEHOLDER}
+                        value={f.placeholder ?? ''}
+                        oninput={(e) => updatePlaceholder(idx, (e.currentTarget as HTMLInputElement).value)}
+                        class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        placeholder="z.B. FritzBox-Standard…"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onclick={() => removeField(idx)}
+                    class="rounded p-1 text-slate-400 hover:bg-rose-100 hover:text-rose-700"
+                    title="Feld entfernen"
+                    aria-label="Feld entfernen"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              </li>
+            {/each}
+          </ul>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onclick={() => addField('text')}
+              disabled={fields.length >= MAX_FIELDS}
+              class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              + Text
+            </button>
+            <button
+              type="button"
+              onclick={() => addField('password')}
+              disabled={fields.length >= MAX_FIELDS}
+              class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              + Passwort
+            </button>
+            <button
+              type="button"
+              onclick={() => addField('textarea')}
+              disabled={fields.length >= MAX_FIELDS}
+              class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              + Mehrzeilig
+            </button>
           </div>
         </div>
 

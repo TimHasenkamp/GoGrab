@@ -106,11 +106,12 @@ func (q *Queries) CreateOperator(ctx context.Context, arg CreateOperatorParams) 
 const createRequest = `-- name: CreateRequest :one
 
 INSERT INTO requests (
-    token, description, operator_id, expires_at, wrapped_key, wrap_iv
+    token, description, operator_id, expires_at, wrapped_key, wrap_iv, form_schema
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, token, description, operator_id, created_at, expires_at,
-          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
+          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+          status, form_schema
 `
 
 type CreateRequestParams struct {
@@ -120,6 +121,7 @@ type CreateRequestParams struct {
 	ExpiresAt   pgtype.Timestamptz
 	WrappedKey  []byte
 	WrapIv      []byte
+	FormSchema  []byte
 }
 
 // =================== requests ===================
@@ -131,6 +133,7 @@ func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (R
 		arg.ExpiresAt,
 		arg.WrappedKey,
 		arg.WrapIv,
+		arg.FormSchema,
 	)
 	var i Request
 	err := row.Scan(
@@ -147,6 +150,7 @@ func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (R
 		&i.WrappedKey,
 		&i.WrapIv,
 		&i.Status,
+		&i.FormSchema,
 	)
 	return i, err
 }
@@ -245,7 +249,8 @@ func (q *Queries) GetOperatorByUsername(ctx context.Context, username string) (O
 
 const getRequestByID = `-- name: GetRequestByID :one
 SELECT id, token, description, operator_id, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+       status, form_schema
 FROM requests
 WHERE id = $1
 `
@@ -267,13 +272,15 @@ func (q *Queries) GetRequestByID(ctx context.Context, id uuid.UUID) (Request, er
 		&i.WrappedKey,
 		&i.WrapIv,
 		&i.Status,
+		&i.FormSchema,
 	)
 	return i, err
 }
 
 const getRequestByToken = `-- name: GetRequestByToken :one
 SELECT id, token, description, operator_id, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+       status, form_schema
 FROM requests
 WHERE token = $1
 `
@@ -295,6 +302,7 @@ func (q *Queries) GetRequestByToken(ctx context.Context, token string) (Request,
 		&i.WrappedKey,
 		&i.WrapIv,
 		&i.Status,
+		&i.FormSchema,
 	)
 	return i, err
 }
@@ -454,7 +462,8 @@ func (q *Queries) ListCredentialsByOperator(ctx context.Context, operatorID uuid
 
 const listRequestsByOperator = `-- name: ListRequestsByOperator :many
 SELECT id, token, description, operator_id, created_at, expires_at,
-       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
+       submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+       status, form_schema
 FROM requests
 WHERE operator_id = $1
 ORDER BY created_at DESC
@@ -484,6 +493,7 @@ func (q *Queries) ListRequestsByOperator(ctx context.Context, operatorID uuid.UU
 			&i.WrappedKey,
 			&i.WrapIv,
 			&i.Status,
+			&i.FormSchema,
 		); err != nil {
 			return nil, err
 		}
@@ -548,7 +558,8 @@ WHERE token = $1
   AND status = 'pending'
   AND expires_at > now()
 RETURNING id, token, description, operator_id, created_at, expires_at,
-          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv, status
+          submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
+          status, form_schema
 `
 
 type SubmitCiphertextParams struct {
@@ -574,6 +585,7 @@ func (q *Queries) SubmitCiphertext(ctx context.Context, arg SubmitCiphertextPara
 		&i.WrappedKey,
 		&i.WrapIv,
 		&i.Status,
+		&i.FormSchema,
 	)
 	return i, err
 }

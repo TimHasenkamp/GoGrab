@@ -4,6 +4,7 @@
   import { adminApi, type AdminRequestSummary, type ApiError } from '$lib/api';
   import { decrypt } from '$lib/crypto';
   import { session } from '$lib/session.svelte';
+  import { defaultSchema, type FormField } from '$lib/forms';
   import {
     relativeTime,
     absoluteTime,
@@ -19,9 +20,11 @@
   let error = $state<string | null>(null);
 
   let decrypted = $state<string | null>(null);
+  let decryptedFields = $state<{ field: FormField; value: string }[] | null>(null);
+  let revealed = $state<Record<string, boolean>>({});
+  let copiedField = $state<string | null>(null);
   let decrypting = $state(false);
   let decryptError = $state<string | null>(null);
-  let copiedSecret = $state(false);
 
   async function load() {
     loading = true;
@@ -46,13 +49,38 @@
     decrypting = true;
     decryptError = null;
     decrypted = null;
+    decryptedFields = null;
     try {
       const payload = await adminApi.retrieve(id);
       const key = await session.unwrapRequestKey(
         payload.wrapped_key_b64,
         payload.wrap_iv_b64
       );
-      decrypted = await decrypt(payload.ciphertext_b64, payload.iv_b64, key);
+      const plaintext = await decrypt(payload.ciphertext_b64, payload.iv_b64, key);
+      decrypted = plaintext;
+
+      // Try to parse as the JSON object the customer's new flow sends. Fall
+      // back to a single-field display for legacy / non-JSON payloads.
+      const schema = request?.form_schema ?? defaultSchema();
+      let parsed: Record<string, string> | null = null;
+      try {
+        const obj = JSON.parse(plaintext);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+          parsed = obj as Record<string, string>;
+        }
+      } catch {
+        // not JSON — old single-string format
+      }
+      if (parsed) {
+        decryptedFields = schema.map((f) => ({
+          field: f,
+          value: typeof parsed![f.id] === 'string' ? parsed![f.id]! : ''
+        }));
+      } else {
+        decryptedFields = [
+          { field: { id: 'secret', label: 'Geheimnis', type: 'textarea' }, value: plaintext }
+        ];
+      }
       await load();
     } catch (e) {
       decryptError =
@@ -62,11 +90,16 @@
     }
   }
 
-  async function copySecret() {
-    if (decrypted === null) return;
-    await navigator.clipboard.writeText(decrypted);
-    copiedSecret = true;
-    setTimeout(() => (copiedSecret = false), 1500);
+  async function copyFieldValue(id: string, value: string) {
+    await navigator.clipboard.writeText(value);
+    copiedField = id;
+    setTimeout(() => {
+      if (copiedField === id) copiedField = null;
+    }, 1500);
+  }
+
+  function toggleReveal(id: string) {
+    revealed = { ...revealed, [id]: !revealed[id] };
   }
 
   async function cancel() {
@@ -220,26 +253,55 @@
       </div>
     </div>
 
-    {#if decrypted !== null}
+    {#if decryptedFields !== null}
       <div class="mt-4 rounded-xl border border-emerald-200 bg-white shadow-sm">
         <div class="flex items-center justify-between gap-3 border-b border-emerald-100 bg-emerald-50 px-6 py-3">
           <div class="flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-700">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <h2 class="text-sm font-semibold text-emerald-900">Entschlüsseltes Geheimnis</h2>
+            <h2 class="text-sm font-semibold text-emerald-900">Entschlüsselte Werte</h2>
           </div>
-          <button
-            type="button"
-            onclick={copySecret}
-            class="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-800"
-          >
-            {copiedSecret ? 'Kopiert' : 'Kopieren'}
-          </button>
         </div>
-        <pre class="whitespace-pre-wrap break-words p-4 font-mono text-sm text-slate-900">{decrypted}</pre>
+        <ul class="divide-y divide-emerald-50">
+          {#each decryptedFields as { field, value } (field.id)}
+            <li class="px-6 py-4">
+              <div class="mb-1 flex items-center justify-between gap-2">
+                <span class="text-xs font-medium uppercase tracking-wide text-slate-500">{field.label}</span>
+                <div class="flex items-center gap-1">
+                  {#if field.type === 'password'}
+                    <button
+                      type="button"
+                      onclick={() => toggleReveal(field.id)}
+                      class="rounded-md px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                      title={revealed[field.id] ? 'Verbergen' : 'Anzeigen'}
+                    >
+                      {revealed[field.id] ? '🙈' : '👁'}
+                    </button>
+                  {/if}
+                  <button
+                    type="button"
+                    onclick={() => copyFieldValue(field.id, value)}
+                    class="rounded-md bg-emerald-700 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-800"
+                  >
+                    {copiedField === field.id ? '✓ Kopiert' : 'Kopieren'}
+                  </button>
+                </div>
+              </div>
+              {#if field.type === 'password' && !revealed[field.id]}
+                <div class="font-mono text-sm tracking-widest text-slate-700">
+                  {'•'.repeat(Math.min(value.length, 40))}
+                </div>
+              {:else if field.type === 'textarea'}
+                <pre class="whitespace-pre-wrap break-words rounded-md bg-slate-50 p-2 font-mono text-sm text-slate-900">{value}</pre>
+              {:else}
+                <div class="select-all break-all rounded-md bg-slate-50 p-2 font-mono text-sm text-slate-900">{value}</div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
         <p class="border-t border-emerald-100 px-6 py-2 text-xs text-emerald-700">
-          Kopiere den Wert oder schließe das Tab, wenn du fertig bist. Der Server hat keinen Zugriff mehr darauf.
+          Kopiere die Werte oder schließe das Tab, wenn du fertig bist. Der Server hat keinen Zugriff mehr darauf.
         </p>
       </div>
     {/if}
