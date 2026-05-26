@@ -1,0 +1,79 @@
+# GoGrab production compose. Traefik (with Authentik forward-auth middleware
+# named "authentik@docker") is expected on the external "proxy" network.
+# Cloudflare DNS-challenge wildcard cert is assumed to be issued by the
+# "cloudflare" certresolver.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gograb:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GOGRAB_LISTEN_ADDR: ":8080"
+      GOGRAB_PUBLIC_BASE_URL: "https://gograb.example.com"
+      GOGRAB_LOG_LEVEL: "info"
+      GOGRAB_TRUSTED_PROXY: "1"
+      GOGRAB_DATABASE_URL: "postgres://gograb:${POSTGRES_PASSWORD:-gograb}@postgres:5432/gograb?sslmode=disable"
+      GOGRAB_DEFAULT_TTL_HOURS: "72"
+      GOGRAB_MAX_CIPHERTEXT_BYTES: "65536"
+      GOGRAB_RATE_PER_MIN: "20"
+      GOGRAB_RATE_BURST: "5"
+      GOGRAB_NOTIFY_WEBHOOK_URL: "${GOGRAB_NOTIFY_WEBHOOK_URL:-}"
+      GOGRAB_NOTIFY_WEBHOOK_TIMEOUT_SECONDS: "5"
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+
+      # Router 1: admin surface — Authentik forward-auth required
+      - "traefik.http.routers.gograb-admin.rule=Host(`gograb.example.com`) && (PathPrefix(`/admin`) || PathPrefix(`/api/admin`))"
+      - "traefik.http.routers.gograb-admin.entrypoints=websecure"
+      - "traefik.http.routers.gograb-admin.tls=true"
+      - "traefik.http.routers.gograb-admin.tls.certresolver=cloudflare"
+      - "traefik.http.routers.gograb-admin.tls.domains[0].main=gograb.example.com"
+      - "traefik.http.routers.gograb-admin.middlewares=authentik@docker"
+      - "traefik.http.routers.gograb-admin.service=gograb"
+
+      # Router 2: public surface — no auth, hits /r/* and /api/requests/*
+      - "traefik.http.routers.gograb-public.rule=Host(`gograb.example.com`)"
+      - "traefik.http.routers.gograb-public.entrypoints=websecure"
+      - "traefik.http.routers.gograb-public.tls=true"
+      - "traefik.http.routers.gograb-public.tls.certresolver=cloudflare"
+      - "traefik.http.routers.gograb-public.tls.domains[0].main=gograb.example.com"
+      - "traefik.http.routers.gograb-public.priority=10"
+      - "traefik.http.routers.gograb-public.service=gograb"
+
+      - "traefik.http.services.gograb.loadbalancer.server.port=8080"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gograb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gograb}
+      POSTGRES_DB: ${POSTGRES_DB:-gograb}
+    volumes:
+      - gograb-pg:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gograb} -d ${POSTGRES_DB:-gograb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  gograb-pg:
+
+networks:
+  proxy:
+    external: true
+  internal:
+    driver: bridge
