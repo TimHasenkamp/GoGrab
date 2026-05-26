@@ -23,8 +23,7 @@ crypto.
 
 Please **do not** open a public GitHub issue for security reports.
 
-Email security reports to **security@<your-domain>** (replace with your real
-contact before publishing) with:
+Email security reports to **security@hkp-solutions.de**  with:
 
 - A clear description of the issue
 - Steps to reproduce or proof-of-concept
