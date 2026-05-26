@@ -99,6 +99,12 @@
             Security
           </a>
           <a
+            href="/admin/audit"
+            class="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            Audit
+          </a>
+          <a
             href="/admin/new"
             class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
           >

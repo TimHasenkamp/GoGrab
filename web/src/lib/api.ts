@@ -113,6 +113,22 @@ export interface CredentialSummary {
   last_used_at: string | null;
 }
 
+// --- audit ---
+export interface AuditEntry {
+  id: number;
+  occurred_at: string;
+  actor: string;
+  action: string;
+  request_id: string | null;
+  ip: string | null;
+  user_agent: string | null;
+}
+
+export const auditApi = {
+  list: (limit = 200) =>
+    call<AuditEntry[]>('GET', `/api/admin/audit?limit=${limit}`)
+};
+
 export const authApi = {
   status: () => call<AuthStatus>('GET', '/api/admin/auth/status'),
   registerBegin: () =>

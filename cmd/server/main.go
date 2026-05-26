@@ -80,7 +80,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
-		Handler:           withRequestLog(log, mux),
+		Handler:           handlers.SecurityHeaders(withRequestLog(log, mux)),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -113,9 +113,10 @@ func run() error {
 func buildRouter(cfg config.Config, deps *handlers.Deps, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 
-	// --- public API (rate-limited, unauthenticated) ---
+	// --- public API (rate-limited + scan-backoff, unauthenticated) ---
 	publicRL := newRateLimiter(rate.Limit(float64(cfg.RatePerMin)/60.0), cfg.RateBurst)
-	publicMW := chain(publicRL.Middleware)
+	notFoundBackoff := handlers.NewNotFoundTracker()
+	publicMW := chain(publicRL.Middleware, notFoundBackoff.Middleware)
 
 	mux.Handle("GET /api/requests/{token}/meta", publicMW(http.HandlerFunc(deps.PublicMeta)))
 	mux.Handle("POST /api/requests/{token}/submit", publicMW(http.HandlerFunc(deps.PublicSubmit)))
@@ -144,6 +145,8 @@ func buildRouter(cfg config.Config, deps *handlers.Deps, log *slog.Logger) http.
 	mux.Handle("POST /api/admin/auth/login/finish", admin(http.HandlerFunc(deps.AuthLoginFinish)))
 	mux.Handle("GET /api/admin/auth/credentials", admin(http.HandlerFunc(deps.AuthListCredentials)))
 	mux.Handle("DELETE /api/admin/auth/credentials/{id}", admin(http.HandlerFunc(deps.AuthDeleteCredential)))
+
+	mux.Handle("GET /api/admin/audit", admin(http.HandlerFunc(deps.AdminAudit)))
 
 	// --- healthcheck ---
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
