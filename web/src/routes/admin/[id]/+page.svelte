@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { adminApi, type AdminRequestSummary, type ApiError } from '$lib/api';
-  import { importKeyB64url, decrypt } from '$lib/crypto';
+  import { decrypt } from '$lib/crypto';
+  import { session } from '$lib/session.svelte';
   import {
     relativeTime,
     absoluteTime,
@@ -17,7 +18,6 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
 
-  let keyInput = $state('');
   let decrypted = $state<string | null>(null);
   let decrypting = $state(false);
   let decryptError = $state<string | null>(null);
@@ -37,22 +37,21 @@
 
   onMount(load);
 
-  function extractKey(input: string): string {
-    const trimmed = input.trim();
-    const hashIdx = trimmed.indexOf('#');
-    return hashIdx >= 0 ? trimmed.slice(hashIdx + 1) : trimmed;
-  }
-
-  async function reveal(e: Event) {
-    e.preventDefault();
+  async function reveal() {
     if (decrypting) return;
+    if (!session.isUnlocked) {
+      decryptError = 'Session ist nicht entsperrt.';
+      return;
+    }
     decrypting = true;
     decryptError = null;
     decrypted = null;
     try {
-      const keyB64 = extractKey(keyInput);
-      const key = await importKeyB64url(keyB64);
       const payload = await adminApi.retrieve(id);
+      const key = await session.unwrapRequestKey(
+        payload.wrapped_key_b64,
+        payload.wrap_iv_b64
+      );
       decrypted = await decrypt(payload.ciphertext_b64, payload.iv_b64, key);
       await load();
     } catch (e) {
@@ -80,7 +79,6 @@
     }
   }
 
-  // status-driven timeline steps (current, past, pending)
   function timelineState(r: AdminRequestSummary): { step: string; state: 'done' | 'current' | 'todo' }[] {
     const out: { step: string; state: 'done' | 'current' | 'todo' }[] = [];
     out.push({ step: 'Angelegt', state: 'done' });
@@ -117,7 +115,6 @@
       {error}
     </div>
   {:else if request}
-    <!-- Header card -->
     <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div class="border-b border-slate-100 px-6 py-5">
         <div class="flex items-start justify-between gap-3">
@@ -150,7 +147,6 @@
         </dl>
       </div>
 
-      <!-- Timeline -->
       <div class="border-b border-slate-100 px-6 py-4">
         <ol class="space-y-2">
           {#each timelineState(request) as t (t.step)}
@@ -174,14 +170,12 @@
         </ol>
       </div>
 
-      <!-- Action panel -->
       <div class="p-6">
         {#if request.status === 'pending'}
           <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm">
             <p class="font-medium text-slate-900">Wartet auf den Kunden</p>
             <p class="mt-1 text-slate-600">
-              Sobald der Kunde einreicht, kannst du das Geheimnis hier mit deinem Schlüssel abrufen.
-              Hast du den Share-Link parat?
+              Sobald der Kunde einreicht, kannst du das Geheimnis hier mit einem Klick abrufen.
             </p>
             <button
               type="button"
@@ -199,31 +193,20 @@
           <div>
             <h2 class="text-sm font-semibold text-slate-900">Geheimnis abrufen</h2>
             <p class="mt-1 text-xs text-slate-600">
-              Füge den vollständigen Share-Link (oder nur den Teil hinter <code class="rounded bg-slate-100 px-1">#</code>) ein.
-              Der Abruf ist einmalig — danach wird der Chiffretext serverseitig gelöscht.
+              Ein Klick — deine entsperrte Session entwrappt den Schlüssel und entschlüsselt lokal.
+              Der Server löscht den Chiffretext nach diesem Aufruf.
             </p>
-            <form onsubmit={reveal} class="mt-4 space-y-3">
-              <input
-                required
-                bind:value={keyInput}
-                placeholder="https://…/r/TOKEN#SCHLÜSSEL  oder  SCHLÜSSEL"
-                class="block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-              />
-              {#if decryptError}
-                <p class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{decryptError}</p>
-              {/if}
-              <button
-                type="submit"
-                disabled={decrypting || !keyInput}
-                class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {#if decrypting}
-                  Entschlüssele …
-                {:else}
-                  Abrufen & entschlüsseln
-                {/if}
-              </button>
-            </form>
+            {#if decryptError}
+              <p class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{decryptError}</p>
+            {/if}
+            <button
+              type="button"
+              onclick={reveal}
+              disabled={decrypting || !session.isUnlocked}
+              class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+            >
+              {decrypting ? 'Entschlüssele …' : 'Abrufen & entschlüsseln'}
+            </button>
           </div>
         {:else if request.status === 'expired'}
           <div class="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
@@ -256,7 +239,7 @@
         </div>
         <pre class="whitespace-pre-wrap break-words p-4 font-mono text-sm text-slate-900">{decrypted}</pre>
         <p class="border-t border-emerald-100 px-6 py-2 text-xs text-emerald-700">
-          Schließe dieses Tab oder kopiere den Wert, sobald du fertig bist. Der Server hat keinen Zugriff mehr darauf.
+          Kopiere den Wert oder schließe das Tab, wenn du fertig bist. Der Server hat keinen Zugriff mehr darauf.
         </p>
       </div>
     {/if}

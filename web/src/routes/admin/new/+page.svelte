@@ -1,6 +1,7 @@
 <script lang="ts">
   import { adminApi, type ApiError } from '$lib/api';
   import { generateKey, exportKeyB64url } from '$lib/crypto';
+  import { session } from '$lib/session.svelte';
 
   let description = $state('');
   let expiresInHours = $state(72);
@@ -20,16 +21,30 @@
   async function submit(e: Event) {
     e.preventDefault();
     if (submitting) return;
+    if (!session.isUnlocked) {
+      error = 'Session ist nicht entsperrt — bitte oben links entsperren.';
+      return;
+    }
     submitting = true;
     error = null;
     try {
+      // Per-request AES key: stays extractable so we can put the raw form
+      // into the URL fragment for the customer. The wrap call works on
+      // extractable keys.
       const key = await generateKey();
       const keyB64 = await exportKeyB64url(key);
-      const res = await adminApi.create(description.trim(), expiresInHours);
+      const { wrappedKeyB64, wrapIvB64 } = await session.wrapRequestKey(key);
+
+      const res = await adminApi.create({
+        description: description.trim(),
+        expires_in_hours: expiresInHours,
+        wrapped_key_b64: wrappedKeyB64,
+        wrap_iv_b64: wrapIvB64
+      });
       requestId = res.request_id;
       shareUrl = `${location.origin}/r/${res.token}#${keyB64}`;
     } catch (e) {
-      error = (e as ApiError).message || 'Konnte Request nicht anlegen';
+      error = (e as Error).message || (e as ApiError).message || 'Konnte Request nicht anlegen';
     } finally {
       submitting = false;
     }
@@ -103,29 +118,20 @@
           >
         </div>
 
-        <!-- Critical warning -->
-        <div class="flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-3">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 text-amber-700">
-            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-            <line x1="12" y1="9" x2="12" y2="13" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
-          <div class="text-sm text-amber-900">
-            <p class="font-medium">Speichere diesen Link jetzt — er kann nicht wiederhergestellt werden.</p>
-            <p class="mt-1 text-amber-800">
-              Der Schlüssel zum Entschlüsseln liegt nur im Teil hinter <code class="rounded bg-amber-100 px-1">#</code> und wird nie an den Server gesendet. Ohne diesen Link kannst du das Geheimnis nicht lesen.
-            </p>
-          </div>
-        </div>
-
         <!-- What now -->
         <div class="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
           <p class="font-medium text-slate-900">Was passiert jetzt?</p>
           <ol class="mt-1 list-decimal space-y-0.5 pl-4 text-slate-700">
             <li>Schicke den Link per Mail / Messenger an den Kunden.</li>
-            <li>Sobald er einreicht, kannst du das Geheimnis im Detail abrufen.</li>
+            <li>
+              Sobald er einreicht, klick im Request-Detail auf <em>Abrufen</em> — deine
+              entsperrte Session entschlüsselt das Geheimnis automatisch.
+            </li>
             <li>Beim Abruf wird der Chiffretext einmalig gelesen und auf dem Server gelöscht.</li>
           </ol>
+          <p class="mt-2 text-xs text-slate-500">
+            Den Link musst du dir nicht merken — der Schlüssel liegt mehrfach verschlüsselt auch in deiner Datenbank.
+          </p>
         </div>
 
         <div class="flex gap-2 pt-2">

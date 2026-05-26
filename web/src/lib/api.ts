@@ -44,13 +44,19 @@ export interface CreateRequestResponse {
 export interface RetrieveResponse {
   ciphertext_b64: string;
   iv_b64: string;
+  wrapped_key_b64: string;
+  wrap_iv_b64: string;
 }
 
 export const adminApi = {
   list: () => call<AdminRequestSummary[]>('GET', '/api/admin/requests'),
   get: (id: string) => call<AdminRequestSummary>('GET', `/api/admin/requests/${encodeURIComponent(id)}`),
-  create: (description: string, expires_in_hours: number) =>
-    call<CreateRequestResponse>('POST', '/api/admin/requests', { description, expires_in_hours }),
+  create: (body: {
+    description: string;
+    expires_in_hours: number;
+    wrapped_key_b64: string;
+    wrap_iv_b64: string;
+  }) => call<CreateRequestResponse>('POST', '/api/admin/requests', body),
   retrieve: (id: string) =>
     call<RetrieveResponse>('POST', `/api/admin/requests/${encodeURIComponent(id)}/retrieve`),
   remove: (id: string) =>
