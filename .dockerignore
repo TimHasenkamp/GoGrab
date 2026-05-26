@@ -1,0 +1,16 @@
+# keep image small + builds reproducible
+.git/
+.idea/
+.vscode/
+bin/
+dist/
+*.exe
+web/node_modules/
+web/.svelte-kit/
+web/build/
+.env
+.env.local
+README.md
+docs/
+*.md
+!web/web.go
