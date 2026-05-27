@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	CountCredentialsByOperator(ctx context.Context, operatorID uuid.UUID) (int32, error)
+	CountRequestsByOperator(ctx context.Context, arg CountRequestsByOperatorParams) (int32, error)
 	CreateCredential(ctx context.Context, arg CreateCredentialParams) (WebauthnCredential, error)
 	CreateOperator(ctx context.Context, arg CreateOperatorParams) (Operator, error)
 	// =================== requests ===================
@@ -30,7 +31,7 @@ type Querier interface {
 	ListAuditByRequest(ctx context.Context, requestID *uuid.UUID) ([]AuditLog, error)
 	// =================== webauthn credentials ===================
 	ListCredentialsByOperator(ctx context.Context, operatorID uuid.UUID) ([]WebauthnCredential, error)
-	ListRequestsByOperator(ctx context.Context, operatorID uuid.UUID) ([]Request, error)
+	ListRequestsByOperator(ctx context.Context, arg ListRequestsByOperatorParams) ([]Request, error)
 	MarkRetrievedAndPurge(ctx context.Context, id uuid.UUID) (MarkRetrievedAndPurgeRow, error)
 	SubmitCiphertext(ctx context.Context, arg SubmitCiphertextParams) (Request, error)
 	UpdateCredentialAfterUse(ctx context.Context, arg UpdateCredentialAfterUseParams) error

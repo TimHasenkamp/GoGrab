@@ -31,9 +31,10 @@ sind die, die ich vor v1.0-tag erledigt hätte.
   durchgereicht und auf der Customer-Seite gerendert (h1 / Logo /
   Accent-Color für Buttons). Footer zeigt „Sicher übermittelt mit GoGrab
   für $BRAND_NAME" beim Custom-Branding.
-- [ ] **#6 Pagination + Suche** auf der Requests-Liste. Aktuell hardcoded
-  `LIMIT 200`. Nach 6 Monaten regelmäßiger Nutzung wird's eng. Plus
-  freitext-Suche im `description`-Feld.
+- [x] **#6 Pagination + Suche.** `ListRequestsByOperator` mit `@search`
+  (ILIKE), `@lim`/`@off`. `AdminList` liest `?q=&limit=&offset=`, neue
+  `listResponse`-Hülle mit `items/total/limit/offset`. Frontend hat ein
+  debounced Suchfeld und Vor/Zurück-Pagination ab > 50 Treffern.
 - [ ] **#7 Audit-Log-Retention.** `gograb prune-audit --older-than=180d`
   Subcommand. Audit-Tabelle wächst sonst unbegrenzt. Idealerweise
   Retention-Window per Env, der täglich gepruned wird.

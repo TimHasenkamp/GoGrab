@@ -11,6 +11,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -258,7 +260,14 @@ func (d *Deps) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GET /api/admin/requests
+type listResponse struct {
+	Items  []requestSummary `json:"items"`
+	Total  int32            `json:"total"`
+	Limit  int32            `json:"limit"`
+	Offset int32            `json:"offset"`
+}
+
+// GET /api/admin/requests?limit=&offset=&q=
 func (d *Deps) AdminList(w http.ResponseWriter, r *http.Request) {
 	u, ok := auth.FromContext(r.Context())
 	if !ok {
@@ -271,19 +280,57 @@ func (d *Deps) AdminList(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
 		return
 	}
-	rows, err := d.Queries.ListRequestsByOperator(r.Context(), op.ID)
+
+	q := r.URL.Query()
+	limit := int32(50)
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 {
+			limit = int32(n)
+		}
+	}
+	offset := int32(0)
+	if v := q.Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			offset = int32(n)
+		}
+	}
+	search := strings.TrimSpace(q.Get("q"))
+	if len(search) > 100 {
+		search = search[:100]
+	}
+
+	rows, err := d.Queries.ListRequestsByOperator(r.Context(), db.ListRequestsByOperatorParams{
+		OperatorID: op.ID,
+		Search:     search,
+		Lim:        limit,
+		Off:        offset,
+	})
 	if err != nil {
 		d.Log.Error("list requests", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal", "failed to list")
 		return
 	}
-	out := make([]requestSummary, 0, len(rows))
+	total, err := d.Queries.CountRequestsByOperator(r.Context(), db.CountRequestsByOperatorParams{
+		OperatorID: op.ID,
+		Search:     search,
+	})
+	if err != nil {
+		d.Log.Error("count requests", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal", "failed to count")
+		return
+	}
+	items := make([]requestSummary, 0, len(rows))
 	for _, row := range rows {
 		s := toSummary(row)
 		s.Status = effectiveStatus(row)
-		out = append(out, s)
+		items = append(items, s)
 	}
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, listResponse{
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	})
 }
 
 // GET /api/admin/requests/{id}

@@ -86,9 +86,16 @@ SELECT id, token, description, operator_id, created_at, expires_at,
        submitted_at, retrieved_at, ciphertext, iv, wrapped_key, wrap_iv,
        status, form_schema
 FROM requests
-WHERE operator_id = $1
+WHERE operator_id = @operator_id
+  AND (@search::text = '' OR description ILIKE '%' || @search || '%')
 ORDER BY created_at DESC
-LIMIT 200;
+LIMIT @lim::int OFFSET @off::int;
+
+-- name: CountRequestsByOperator :one
+SELECT COUNT(*)::int AS n
+FROM requests
+WHERE operator_id = @operator_id
+  AND (@search::text = '' OR description ILIKE '%' || @search || '%');
 
 -- name: SubmitCiphertext :one
 UPDATE requests

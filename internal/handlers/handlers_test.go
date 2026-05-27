@@ -109,16 +109,72 @@ func (f *fakeDB) GetRequestByToken(_ context.Context, token string) (db.Request,
 	return r, nil
 }
 
-func (f *fakeDB) ListRequestsByOperator(_ context.Context, operatorID uuid.UUID) ([]db.Request, error) {
+func (f *fakeDB) ListRequestsByOperator(_ context.Context, arg db.ListRequestsByOperatorParams) ([]db.Request, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var out []db.Request
 	for _, r := range f.requestsByID {
-		if r.OperatorID == operatorID {
-			out = append(out, r)
+		if r.OperatorID != arg.OperatorID {
+			continue
 		}
+		if arg.Search != "" && !contains(r.Description, arg.Search) {
+			continue
+		}
+		out = append(out, r)
+	}
+	// trivial offset+limit
+	if int(arg.Off) >= len(out) {
+		return nil, nil
+	}
+	out = out[arg.Off:]
+	if int(arg.Lim) < len(out) {
+		out = out[:arg.Lim]
 	}
 	return out, nil
+}
+
+func (f *fakeDB) CountRequestsByOperator(_ context.Context, arg db.CountRequestsByOperatorParams) (int32, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var n int32
+	for _, r := range f.requestsByID {
+		if r.OperatorID != arg.OperatorID {
+			continue
+		}
+		if arg.Search != "" && !contains(r.Description, arg.Search) {
+			continue
+		}
+		n++
+	}
+	return n, nil
+}
+
+// case-insensitive substring (mirrors postgres ILIKE).
+func contains(hay, needle string) bool {
+	if needle == "" {
+		return true
+	}
+	h, n := []rune(hay), []rune(needle)
+	for i := 0; i+len(n) <= len(h); i++ {
+		match := true
+		for j := range n {
+			a, b := h[i+j], n[j]
+			if 'A' <= a && a <= 'Z' {
+				a += 'a' - 'A'
+			}
+			if 'A' <= b && b <= 'Z' {
+				b += 'a' - 'A'
+			}
+			if a != b {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *fakeDB) SubmitCiphertext(_ context.Context, arg db.SubmitCiphertextParams) (db.Request, error) {
@@ -308,12 +364,45 @@ func TestAdminList_FiltersByOperator(t *testing.T) {
 	// alice lists — sees only her own
 	rec = httptest.NewRecorder()
 	deps.AdminList(rec, asUser(httptest.NewRequest("GET", "/", nil), "alice"))
-	var list []requestSummary
+	var list listResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
 		t.Fatalf("decode list: %v", err)
 	}
-	if len(list) != 1 {
-		t.Errorf("alice should see 1 request, got %d", len(list))
+	if len(list.Items) != 1 || list.Total != 1 {
+		t.Errorf("alice should see 1 request, got items=%d total=%d", len(list.Items), list.Total)
+	}
+}
+
+func TestAdminList_SearchAndPagination(t *testing.T) {
+	deps, fdb := newTestDeps()
+	// Seed three requests for alice with different descriptions
+	op, _ := fdb.CreateOperator(context.Background(), db.CreateOperatorParams{Username: "alice"})
+	descs := []string{"WLAN-Passwort Müller", "Server-Login Acme", "WLAN-Passwort Schmidt"}
+	for _, d := range descs {
+		_, _ = fdb.CreateRequest(context.Background(), db.CreateRequestParams{
+			Token: d, Description: d, OperatorID: op.ID,
+			ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true},
+		})
+	}
+
+	// Search ?q=wlan → 2 hits
+	rec := httptest.NewRecorder()
+	deps.AdminList(rec, asUser(httptest.NewRequest("GET", "/?q=wlan", nil), "alice"))
+	var got listResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Total != 2 || len(got.Items) != 2 {
+		t.Errorf("search='wlan' → items=%d total=%d, want 2/2", len(got.Items), got.Total)
+	}
+
+	// Pagination ?limit=1 → 1 item, total still 3
+	rec = httptest.NewRecorder()
+	deps.AdminList(rec, asUser(httptest.NewRequest("GET", "/?limit=1", nil), "alice"))
+	got = listResponse{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.Total != 3 || len(got.Items) != 1 {
+		t.Errorf("limit=1 → items=%d total=%d, want 1/3", len(got.Items), got.Total)
 	}
 }
 

@@ -11,15 +11,24 @@
   } from '$lib/format';
 
   let requests = $state<AdminRequestSummary[]>([]);
+  let total = $state(0);
   let loading = $state(true);
   let error = $state<string | null>(null);
   let filter = $state<Status | 'all'>('all');
+
+  const PAGE_SIZE = 50;
+  let searchInput = $state('');
+  let search = $state('');
+  let offset = $state(0);
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function refresh() {
     loading = true;
     error = null;
     try {
-      requests = await adminApi.list();
+      const res = await adminApi.list({ q: search, limit: PAGE_SIZE, offset });
+      requests = res.items;
+      total = res.total;
     } catch (e) {
       error = (e as ApiError).message || 'Konnte Liste nicht laden';
     } finally {
@@ -28,6 +37,27 @@
   }
 
   onMount(refresh);
+
+  // Debounced search: wait 250ms after the last keystroke before refetching.
+  function onSearchInput(v: string) {
+    searchInput = v;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      search = searchInput.trim();
+      offset = 0;
+      void refresh();
+    }, 250);
+  }
+
+  function go(delta: number) {
+    const next = offset + delta;
+    if (next < 0 || next >= total) return;
+    offset = next;
+    void refresh();
+  }
+
+  const page = $derived(Math.floor(offset / PAGE_SIZE) + 1);
+  const lastPage = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
 
   const counts = $derived.by(() => {
     const c: Record<Status, number> = { pending: 0, submitted: 0, retrieved: 0, expired: 0 };
@@ -56,11 +86,27 @@
 <svelte:head><title>GoGrab — Requests</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-6 py-8">
-  <div class="mb-6">
-    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Deine Requests</h1>
-    <p class="mt-1 text-sm text-slate-600">
-      Erstelle einen verschlüsselten Link, schicke ihn an deinen Kunden, lese die Antwort einmalig aus.
-    </p>
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Deine Requests</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        Erstelle einen verschlüsselten Link, schicke ihn an deinen Kunden, lese die Antwort einmalig aus.
+      </p>
+    </div>
+    <label class="relative block w-full sm:w-64">
+      <span class="sr-only">Suchen</span>
+      <svg class="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+      <input
+        type="search"
+        placeholder="Beschreibung durchsuchen…"
+        value={searchInput}
+        oninput={(e) => onSearchInput((e.currentTarget as HTMLInputElement).value)}
+        class="block w-full rounded-md border border-slate-300 bg-white pl-8 pr-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+      />
+    </label>
   </div>
 
   <!-- Stats -->
@@ -196,5 +242,33 @@
         </li>
       {/each}
     </ul>
+
+    {#if total > PAGE_SIZE}
+      <div class="mt-4 flex items-center justify-between text-sm text-slate-600">
+        <span>
+          {offset + 1}–{Math.min(offset + requests.length, total)} von {total}
+          {#if search}<span class="ml-1 text-slate-400">(gefiltert)</span>{/if}
+        </span>
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            onclick={() => go(-PAGE_SIZE)}
+            disabled={offset === 0}
+            class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+          >
+            ← Vor
+          </button>
+          <span class="px-2 text-xs text-slate-500">Seite {page} / {lastPage}</span>
+          <button
+            type="button"
+            onclick={() => go(PAGE_SIZE)}
+            disabled={offset + PAGE_SIZE >= total}
+            class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+          >
+            Weiter →
+          </button>
+        </div>
+      </div>
+    {/if}
   {/if}
 </div>

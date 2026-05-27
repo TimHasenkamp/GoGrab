@@ -49,8 +49,25 @@ export interface RetrieveResponse {
   wrap_iv_b64: string;
 }
 
+export interface AdminListResponse {
+  items: AdminRequestSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export const adminApi = {
-  list: () => call<AdminRequestSummary[]>('GET', '/api/admin/requests'),
+  list: (opts?: { q?: string; limit?: number; offset?: number }) => {
+    const p = new URLSearchParams();
+    if (opts?.q) p.set('q', opts.q);
+    if (opts?.limit != null) p.set('limit', String(opts.limit));
+    if (opts?.offset != null) p.set('offset', String(opts.offset));
+    const qs = p.toString();
+    return call<AdminListResponse>(
+      'GET',
+      '/api/admin/requests' + (qs ? '?' + qs : '')
+    );
+  },
   get: (id: string) => call<AdminRequestSummary>('GET', `/api/admin/requests/${encodeURIComponent(id)}`),
   create: (body: {
     description: string;

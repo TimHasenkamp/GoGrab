@@ -26,6 +26,25 @@ func (q *Queries) CountCredentialsByOperator(ctx context.Context, operatorID uui
 	return n, err
 }
 
+const countRequestsByOperator = `-- name: CountRequestsByOperator :one
+SELECT COUNT(*)::int AS n
+FROM requests
+WHERE operator_id = $1
+  AND ($2::text = '' OR description ILIKE '%' || $2 || '%')
+`
+
+type CountRequestsByOperatorParams struct {
+	OperatorID uuid.UUID
+	Search     string
+}
+
+func (q *Queries) CountRequestsByOperator(ctx context.Context, arg CountRequestsByOperatorParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countRequestsByOperator, arg.OperatorID, arg.Search)
+	var n int32
+	err := row.Scan(&n)
+	return n, err
+}
+
 const createCredential = `-- name: CreateCredential :one
 INSERT INTO webauthn_credentials (
     operator_id, credential_id, public_key, sign_count, transports,
@@ -466,12 +485,25 @@ SELECT id, token, description, operator_id, created_at, expires_at,
        status, form_schema
 FROM requests
 WHERE operator_id = $1
+  AND ($2::text = '' OR description ILIKE '%' || $2 || '%')
 ORDER BY created_at DESC
-LIMIT 200
+LIMIT $4::int OFFSET $3::int
 `
 
-func (q *Queries) ListRequestsByOperator(ctx context.Context, operatorID uuid.UUID) ([]Request, error) {
-	rows, err := q.db.Query(ctx, listRequestsByOperator, operatorID)
+type ListRequestsByOperatorParams struct {
+	OperatorID uuid.UUID
+	Search     string
+	Off        int32
+	Lim        int32
+}
+
+func (q *Queries) ListRequestsByOperator(ctx context.Context, arg ListRequestsByOperatorParams) ([]Request, error) {
+	rows, err := q.db.Query(ctx, listRequestsByOperator,
+		arg.OperatorID,
+		arg.Search,
+		arg.Off,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
