@@ -47,8 +47,10 @@ sind die, die ich vor v1.0-tag erledigt hätte.
 
 ## 🟢 Polish (irgendwann)
 
-- [ ] **#9 Customer-Side-Vorschau vor Submit.** „Du sendest diese Werte an
-  _Operator-Name_." Trust-Building, eine kleine Confirm-Modal.
+- [x] **#9 Customer-Side-Vorschau vor Submit.** Erster Submit-Klick öffnet
+  eine Modal mit der Feldliste (Werte gemasked bei Passwort, gekürzt bei
+  langem Text), erklärt nochmal an wen das Ganze geht und hat den eigentlichen
+  „An $BRAND senden"-Button.
 - [ ] **#10 i18n.** Aktuell deutsch-only auf der Customer-Seite. Sprachschalter
   (`de` / `en`) oder Auto-Detection via `Accept-Language`.
 - [x] **#11 Mailto-Quick-Action.** „Per Mail senden"-Button auf der

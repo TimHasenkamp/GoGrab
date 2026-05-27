@@ -23,6 +23,7 @@
   let submitting = $state(false);
   let submitError = $state<string | null>(null);
   let done = $state(false);
+  let confirmOpen = $state(false);
 
   // Per-field state. Indexed by field.id.
   let values = $state<Record<string, string>>({});
@@ -112,18 +113,26 @@
     }
   });
 
-  async function submit(e: Event) {
+  // First click on submit just opens the confirmation panel — gives the
+  // customer a clear "you're about to send to <brand>" moment before the
+  // values leave their browser.
+  function openConfirm(e: Event) {
     e.preventDefault();
+    if (!canSubmit) return;
+    submitError = null;
+    confirmOpen = true;
+  }
+
+  async function reallySubmit() {
     if (!canSubmit) return;
     submitting = true;
     submitError = null;
     try {
-      // Encrypt the JSON object containing all fields. Operator's detail page
-      // parses this back into per-field display.
       const plaintext = JSON.stringify(values);
       const { ciphertextB64, ivB64 } = await encrypt(plaintext, key!);
       await publicApi.submit(token, ciphertextB64, ivB64);
       done = true;
+      confirmOpen = false;
     } catch (e) {
       submitError = (e as ApiError).message || 'Senden fehlgeschlagen';
     } finally {
@@ -187,7 +196,7 @@
     <div class="card">
       <p class="desc">{meta.description}</p>
 
-      <form onsubmit={submit}>
+      <form onsubmit={openConfirm}>
         {#each schema as f (f.id)}
           <div class="field">
             <label for="f-{f.id}">{f.label}</label>
@@ -314,6 +323,45 @@
         Deine Eingaben werden direkt in deinem Browser verschlüsselt, bevor sie gesendet werden. Der
         Server kann den Inhalt nicht lesen.
       </p>
+    </div>
+  {/if}
+
+  {#if confirmOpen && meta}
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <div class="modal">
+        <h2 class="modal-title">Bestätigen</h2>
+        <p class="modal-lead">
+          Du übermittelst die folgenden Eingaben verschlüsselt an
+          <strong>{meta.branding.name}</strong>:
+        </p>
+        <ul class="modal-fields">
+          {#each schema as f (f.id)}
+            <li>
+              <span class="field-label">{f.label}</span>
+              {#if f.type === 'password'}
+                <span class="field-value">••••••••</span>
+              {:else if (values[f.id] ?? '').length > 60}
+                <span class="field-value">{(values[f.id] ?? '').slice(0, 57)}…</span>
+              {:else}
+                <span class="field-value">{values[f.id] ?? ''}</span>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+        <p class="modal-note">
+          Werte werden in deinem Browser verschlüsselt, bevor sie gesendet werden — niemand außer
+          {meta.branding.name} kann sie lesen.
+        </p>
+        {#if submitError}<p class="error-text">{submitError}</p>{/if}
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" onclick={() => (confirmOpen = false)} disabled={submitting}>
+            Zurück, ich will noch was ändern
+          </button>
+          <button type="button" class="btn-submit modal-confirm" onclick={reallySubmit} disabled={submitting}>
+            {submitting ? 'Verschlüssele & sende …' : `An ${meta.branding.name} senden`}
+          </button>
+        </div>
+      </div>
     </div>
   {/if}
 
@@ -560,5 +608,86 @@
     font-size: 0.75rem;
     color: #94a3b8;
     text-align: center;
+  }
+
+  /* confirmation modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    z-index: 50;
+  }
+  .modal {
+    background: #fff;
+    border-radius: 10px;
+    max-width: 26rem;
+    width: 100%;
+    padding: 1.25rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem;
+    color: #0f172a;
+  }
+  .modal-lead {
+    font-size: 0.875rem;
+    color: #334155;
+    margin: 0 0 0.75rem;
+  }
+  .modal-fields {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .modal-fields li {
+    display: grid;
+    grid-template-columns: minmax(7rem, auto) 1fr;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+  .modal-fields li + li {
+    border-top: 1px solid #e2e8f0;
+  }
+  .field-label {
+    color: #64748b;
+    font-weight: 500;
+  }
+  .field-value {
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-all;
+  }
+  .modal-note {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin: 0 0 1rem;
+  }
+  .modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .modal-confirm {
+    margin-top: 0;
+  }
+  @media (min-width: 28rem) {
+    .modal-actions {
+      flex-direction: row-reverse;
+      justify-content: flex-start;
+    }
+    .modal-confirm {
+      flex: 1;
+    }
   }
 </style>
