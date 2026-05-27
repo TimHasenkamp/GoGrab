@@ -76,6 +76,12 @@ sind die, die ich vor v1.0-tag erledigt hätte.
   zusammen mit kompatiblen Versionen hochgezogen werden (peer-dep-Koppelung).
   Sveltekit-Range checken bevor's losgeht.
 
+## SaaS-Pfad
+
+Für den Schritt von „self-hosted Single-Tenant" zu „launchable SaaS für
+mehrere zahlende Orgs": [docs/SAAS_ROADMAP.md](docs/SAAS_ROADMAP.md).
+4 Phasen, ~2-4 Monate Solo-Vollzeit bis Launch.
+
 ## Erledigt aus vorherigen Sessions
 
 - [x] Zero-knowledge Crypto-Flow (URL-Fragment → envelope-wrap mit Master-KEK)
