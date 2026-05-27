@@ -66,6 +66,16 @@ sind die, die ich vor v1.0-tag erledigt hätte.
   - [migrations/README.md](migrations/README.md): how to add a new
     migration, sqlc-resync hinweis, why embedded
 
+## Deferred (manuell migrieren, dependabot ignoriert)
+
+- [ ] **tailwindcss 3 → 4.** Drop `@tailwind base/components/utilities` →
+  `@import "tailwindcss";`. Install `@tailwindcss/postcss`, postcss.config.js
+  umstellen. tailwind.config.js entweder portieren oder durch `@theme`-Blöcke
+  in CSS ersetzen. v3-Utilities gegenchecken (manche entfernt/umbenannt).
+- [ ] **vite 6 → 8 + @sveltejs/vite-plugin-svelte 5 → 7.** Müssen
+  zusammen mit kompatiblen Versionen hochgezogen werden (peer-dep-Koppelung).
+  Sveltekit-Range checken bevor's losgeht.
+
 ## Erledigt aus vorherigen Sessions
 
 - [x] Zero-knowledge Crypto-Flow (URL-Fragment → envelope-wrap mit Master-KEK)

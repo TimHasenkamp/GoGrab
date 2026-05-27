@@ -21,6 +21,20 @@ updates:
       npm-deps:
         applies-to: version-updates
         update-types: [minor, patch]
+    # Pinned majors — these require coordinated migration work that
+    # dependabot can't automate. Bump them manually:
+    #   - tailwindcss 3 → 4: drop @tailwind directives in favor of
+    #     @import "tailwindcss"; install @tailwindcss/postcss; either
+    #     migrate or drop tailwind.config.js (CSS-first config).
+    #   - vite + @sveltejs/vite-plugin-svelte: peer-dep-coupled, must be
+    #     bumped together with matching ranges supported by sveltekit.
+    ignore:
+      - dependency-name: tailwindcss
+        update-types: [version-update:semver-major]
+      - dependency-name: vite
+        update-types: [version-update:semver-major]
+      - dependency-name: "@sveltejs/vite-plugin-svelte"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
     directory: /
