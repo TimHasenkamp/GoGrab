@@ -19,6 +19,10 @@ the operator's browser (compromised host, supply-chain attack on a
 dependency, etc.) — that is an inherent limitation of all browser-side E2E
 crypto.
 
+For the full version with assets, adversaries, trust seams and operational
+posture: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+Operator playbook for common situations: [docs/RUNBOOK.md](docs/RUNBOOK.md).
+
 ## Reporting a vulnerability
 
 Please **do not** open a public GitHub issue for security reports.

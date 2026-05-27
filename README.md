@@ -172,7 +172,10 @@ All JSON. Errors as `{error, message}`.
 
 ## Security model
 
-See [SECURITY.md](SECURITY.md). Key points:
+See [SECURITY.md](SECURITY.md) for the short version,
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the full one with assets +
+adversaries + trust seams, and [docs/RUNBOOK.md](docs/RUNBOOK.md) for
+operator playbooks. Key points:
 
 - Server never sees plaintext, master-KEK, PRF outputs, or per-request keys.
 - DB stores wrapped material only.

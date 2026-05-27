@@ -58,9 +58,13 @@ sind die, die ich vor v1.0-tag erledigt hätte.
 - [x] **#11 Mailto-Quick-Action.** „Per Mail senden"-Button auf der
   Erfolgsseite und im Resend-Block — öffnet `mailto:` mit vorbefülltem
   Subject + Body inkl. Share-URL.
-- [ ] **#12 Docs.** SECURITY.md hat einen Threat-Model-Absatz, kein
-  Operator-Runbook („was tun wenn YubiKey weg / Authentik kaputt /
-  DB-Migration in Prod"). Plus README pro Migrations-Datei mit Up/Down.
+- [x] **#12 Docs.** Drei neue Dokumente:
+  - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md): Assets / Adversaries /
+    Trust-Seams / was geht / was nicht / operational posture
+  - [docs/RUNBOOK.md](docs/RUNBOOK.md): YubiKey-Verlust, Authentik-Down,
+    Release-Deploy, Server-Migration, Audit-Pruning, …
+  - [migrations/README.md](migrations/README.md): how to add a new
+    migration, sqlc-resync hinweis, why embedded
 
 ## Erledigt aus vorherigen Sessions
 
