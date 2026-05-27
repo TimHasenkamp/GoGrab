@@ -9,7 +9,7 @@ COPY web/ ./
 RUN npm run build
 
 # ---------- 2) Build the Go binary (cross-compiled per TARGETARCH) ----------
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS go-builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS go-builder
 WORKDIR /src
 ARG TARGETARCH
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH
