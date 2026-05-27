@@ -9,6 +9,7 @@
     statusDot,
     type Status
   } from '$lib/format';
+  import Icon from '$lib/Icon.svelte';
 
   let requests = $state<AdminRequestSummary[]>([]);
   let total = $state(0);
@@ -163,10 +164,11 @@
       <button
         type="button"
         onclick={refresh}
-        class="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+        class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
         title="Neu laden"
       >
-        ↻ Aktualisieren
+        <Icon name="refresh-cw" size={12} />
+        <span>Aktualisieren</span>
       </button>
     </div>
   </div>
@@ -254,18 +256,20 @@
             type="button"
             onclick={() => go(-PAGE_SIZE)}
             disabled={offset === 0}
-            class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+            class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
           >
-            ← Vor
+            <Icon name="chevron-left" size={14} />
+            <span>Vor</span>
           </button>
           <span class="px-2 text-xs text-slate-500">Seite {page} / {lastPage}</span>
           <button
             type="button"
             onclick={() => go(PAGE_SIZE)}
             disabled={offset + PAGE_SIZE >= total}
-            class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+            class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
           >
-            Weiter →
+            <span>Weiter</span>
+            <Icon name="chevron-right" size={14} />
           </button>
         </div>
       </div>

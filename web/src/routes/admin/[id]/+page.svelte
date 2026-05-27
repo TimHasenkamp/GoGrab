@@ -7,6 +7,7 @@
   import { defaultSchema, type FormField } from '$lib/forms';
   import { toast } from '$lib/toast.svelte';
   import { confirmStore } from '$lib/confirm.svelte';
+  import Icon from '$lib/Icon.svelte';
   import {
     relativeTime,
     absoluteTime,
@@ -272,9 +273,10 @@
                       <button
                         type="button"
                         onclick={copyShareUrl}
-                        class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+                        class="inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
                       >
-                        {shareUrlCopied ? '✓ Kopiert' : 'Kopieren'}
+                        <Icon name={shareUrlCopied ? 'check' : 'copy'} size={12} />
+                        <span>{shareUrlCopied ? 'Kopiert' : 'Kopieren'}</span>
                       </button>
                       <a
                         href={mailtoShare()}
@@ -362,18 +364,20 @@
                     <button
                       type="button"
                       onclick={() => toggleReveal(field.id)}
-                      class="rounded-md px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                      class="inline-flex items-center rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                       title={revealed[field.id] ? 'Verbergen' : 'Anzeigen'}
+                      aria-label={revealed[field.id] ? 'Verbergen' : 'Anzeigen'}
                     >
-                      {revealed[field.id] ? '🙈' : '👁'}
+                      <Icon name={revealed[field.id] ? 'eye-off' : 'eye'} size={14} />
                     </button>
                   {/if}
                   <button
                     type="button"
                     onclick={() => copyFieldValue(field.id, value)}
-                    class="rounded-md bg-emerald-700 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-800"
+                    class="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-800"
                   >
-                    {copiedField === field.id ? '✓ Kopiert' : 'Kopieren'}
+                    <Icon name={copiedField === field.id ? 'check' : 'copy'} size={12} />
+                    <span>{copiedField === field.id ? 'Kopiert' : 'Kopieren'}</span>
                   </button>
                 </div>
               </div>

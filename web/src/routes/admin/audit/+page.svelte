@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { auditApi, type AuditEntry, type ApiError } from '$lib/api';
   import { relativeTime, absoluteTime } from '$lib/format';
+  import Icon from '$lib/Icon.svelte';
 
   let entries = $state<AuditEntry[]>([]);
   let loading = $state(true);
@@ -61,9 +62,10 @@
     <button
       type="button"
       onclick={refresh}
-      class="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+      class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
     >
-      ↻ Aktualisieren
+      <Icon name="refresh-cw" size={12} />
+      <span>Aktualisieren</span>
     </button>
   </header>
 

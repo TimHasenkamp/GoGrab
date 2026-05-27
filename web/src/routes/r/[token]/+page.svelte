@@ -12,6 +12,7 @@
     type PwOptions
   } from '$lib/pwgen';
   import { i18n } from '$lib/i18n.svelte';
+  import Icon from '$lib/Icon.svelte';
 
   i18n.init();
   const t = (k: any, p?: any) => i18n.t(k, p);
@@ -242,21 +243,23 @@
                   title={pwReveal[f.id] ? t('pw.hide') : t('pw.show')}
                   aria-label={pwReveal[f.id] ? t('pw.hide') : t('pw.show')}
                 >
-                  {pwReveal[f.id] ? '🙈' : '👁'}
+                  <Icon name={pwReveal[f.id] ? 'eye-off' : 'eye'} size={16} />
                 </button>
               </div>
 
               <div class="pw-actions">
-                <button type="button" class="btn-secondary" onclick={() => regenerate(f.id)}>
-                  {t('pw.generate')}
+                <button type="button" class="btn-secondary inline-icon-btn" onclick={() => regenerate(f.id)}>
+                  <Icon name="rotate-cw" size={14} />
+                  <span>{t('pw.generate')}</span>
                 </button>
                 <button
                   type="button"
-                  class="btn-secondary"
+                  class="btn-secondary inline-icon-btn"
                   disabled={!values[f.id]}
                   onclick={() => copyValue(f.id)}
                 >
-                  {t('pw.copy')}
+                  <Icon name="copy" size={14} />
+                  <span>{t('pw.copy')}</span>
                 </button>
               </div>
 
@@ -475,8 +478,10 @@
     border: 1px solid #cbd5e1;
     color: #334155;
     cursor: pointer;
-    font-size: 0.9rem;
-    padding: 0 0.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.6rem;
     border-radius: 4px;
   }
   .icon-btn:hover { background: #e2e8f0; }
@@ -494,6 +499,11 @@
     border-radius: 4px;
     font-size: 0.8125rem;
     cursor: pointer;
+  }
+  .inline-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
   }
   .btn-secondary:hover:not(:disabled) { background: #f8fafc; }
   .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
