@@ -2,10 +2,10 @@
   import { toast, type ToastItem } from './toast.svelte';
 
   const kindStyle: Record<ToastItem['kind'], string> = {
-    success: 'border-emerald-300 bg-emerald-50 text-emerald-900',
-    error: 'border-rose-300 bg-rose-50 text-rose-900',
-    info: 'border-slate-300 bg-white text-slate-900',
-    warning: 'border-amber-300 bg-amber-50 text-amber-900'
+    success: 'border-success bg-success/10 text-success',
+    error: 'border-danger bg-danger/10 text-danger',
+    info: 'border-border-strong bg-card text-foreground',
+    warning: 'border-warning bg-warning/10 text-warning'
   };
   const kindIcon: Record<ToastItem['kind'], string> = {
     success: 'M20 6 9 17 4 12',

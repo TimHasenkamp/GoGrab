@@ -24,18 +24,18 @@
   onMount(refresh);
 
   const actionStyles: Record<string, { dot: string; label: string }> = {
-    'request.create': { dot: 'bg-blue-500', label: 'Request angelegt' },
-    'request.view': { dot: 'bg-sky-400', label: 'Kunde hat Link geöffnet' },
-    'request.submit': { dot: 'bg-emerald-500', label: 'Kunde eingereicht' },
-    'request.retrieve': { dot: 'bg-amber-500', label: 'Geheimnis abgerufen' },
-    'request.delete': { dot: 'bg-rose-500', label: 'Request gelöscht' },
-    'credential.register': { dot: 'bg-slate-700', label: 'Key registriert' },
-    'credential.delete': { dot: 'bg-rose-500', label: 'Key entfernt' },
-    'session.unlock': { dot: 'bg-violet-500', label: 'Session entsperrt' }
+    'request.create': { dot: 'bg-accent/70', label: 'Request angelegt' },
+    'request.view': { dot: 'bg-accent/50', label: 'Kunde hat Link geöffnet' },
+    'request.submit': { dot: 'bg-success', label: 'Kunde eingereicht' },
+    'request.retrieve': { dot: 'bg-warning', label: 'Geheimnis abgerufen' },
+    'request.delete': { dot: 'bg-danger', label: 'Request gelöscht' },
+    'credential.register': { dot: 'bg-muted-foreground', label: 'Key registriert' },
+    'credential.delete': { dot: 'bg-danger', label: 'Key entfernt' },
+    'session.unlock': { dot: 'bg-accent/80', label: 'Session entsperrt' }
   };
 
   function actionMeta(a: string) {
-    return actionStyles[a] ?? { dot: 'bg-slate-400', label: a };
+    return actionStyles[a] ?? { dot: 'bg-muted-foreground', label: a };
   }
 
   const filtered = $derived(
@@ -54,15 +54,15 @@
 <div class="mx-auto max-w-4xl px-6 py-8">
   <header class="mb-6 flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Audit-Log</h1>
-      <p class="mt-1 text-sm text-slate-600">
+      <h1 class="text-2xl font-semibold tracking-tight text-foreground">Audit-Log</h1>
+      <p class="mt-1 text-sm text-muted-foreground">
         Append-only Spur aller security-relevanten Aktionen. Die letzten {entries.length} Einträge.
       </p>
     </div>
     <button
       type="button"
       onclick={refresh}
-      class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+      class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
     >
       <Icon name="refresh-cw" size={12} />
       <span>Aktualisieren</span>
@@ -75,8 +75,8 @@
         type="button"
         onclick={() => (filter = 'all')}
         class="rounded-full px-3 py-1 text-xs font-medium {filter === 'all'
-          ? 'bg-slate-900 text-white'
-          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}"
+          ? 'bg-accent text-background'
+          : 'bg-muted text-foreground hover:bg-muted'}"
       >
         Alle
       </button>
@@ -85,8 +85,8 @@
           type="button"
           onclick={() => (filter = a)}
           class="rounded-full px-3 py-1 text-xs font-medium {filter === a
-            ? 'bg-slate-900 text-white'
-            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}"
+            ? 'bg-accent text-background'
+            : 'bg-muted text-foreground hover:bg-muted'}"
         >
           {actionMeta(a).label}
         </button>
@@ -95,27 +95,27 @@
   {/if}
 
   {#if loading}
-    <div class="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">Lade …</div>
+    <div class="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Lade …</div>
   {:else if error}
-    <div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>
+    <div class="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm text-danger">{error}</div>
   {:else if filtered.length === 0}
-    <div class="rounded-lg border border-dashed border-slate-300 bg-white py-12 text-center text-sm text-slate-500">
+    <div class="rounded-lg border border-dashed border-border-strong bg-card py-12 text-center text-sm text-muted-foreground">
       Keine Einträge.
     </div>
   {:else}
-    <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <ul class="divide-y divide-slate-100 text-sm">
+    <div class="overflow-hidden rounded-lg border border-border bg-card">
+      <ul class="divide-y divide-border text-sm">
         {#each filtered as e (e.id)}
           <li class="flex items-start gap-3 px-4 py-3">
             <span class="mt-1 inline-block h-2 w-2 shrink-0 rounded-full {actionMeta(e.action).dot}"></span>
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-3">
-                <span class="font-medium text-slate-900">{actionMeta(e.action).label}</span>
-                <span class="text-xs text-slate-500" title={absoluteTime(e.occurred_at)}>
+                <span class="font-medium text-foreground">{actionMeta(e.action).label}</span>
+                <span class="text-xs text-muted-foreground" title={absoluteTime(e.occurred_at)}>
                   {relativeTime(e.occurred_at)}
                 </span>
               </div>
-              <div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>{e.actor}</span>
                 {#if e.ip}
                   <span>·</span>

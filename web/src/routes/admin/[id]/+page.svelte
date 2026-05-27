@@ -164,7 +164,7 @@
 <svelte:head><title>GoGrab — Request</title></svelte:head>
 
 <div class="mx-auto max-w-2xl px-6 py-8">
-  <a href="/admin" class="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+  <a href="/admin" class="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="15 18 9 12 15 6" />
     </svg>
@@ -172,67 +172,67 @@
   </a>
 
   {#if loading}
-    <div class="h-40 animate-pulse rounded-lg border border-slate-200 bg-white"></div>
+    <div class="h-40 animate-pulse rounded-lg border border-border bg-card"></div>
   {:else if error}
-    <div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+    <div class="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
       {error}
     </div>
   {:else if request}
-    <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div class="border-b border-slate-100 px-6 py-5">
+    <div class="rounded-xl border border-border bg-card shadow-sm">
+      <div class="border-b border-border px-6 py-5">
         <div class="flex items-start justify-between gap-3">
-          <h1 class="text-lg font-semibold text-slate-900">{request.description}</h1>
+          <h1 class="text-lg font-semibold text-foreground">{request.description}</h1>
           <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 {statusBadge[request.status as Status]}">
             {statusLabel[request.status as Status]}
           </span>
         </div>
         <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <dt class="text-slate-500">Angelegt</dt>
-          <dd class="text-slate-900" title={absoluteTime(request.created_at)}>
+          <dt class="text-muted-foreground">Angelegt</dt>
+          <dd class="text-foreground" title={absoluteTime(request.created_at)}>
             {relativeTime(request.created_at)}
           </dd>
-          <dt class="text-slate-500">Läuft ab</dt>
-          <dd class="text-slate-900" title={absoluteTime(request.expires_at)}>
+          <dt class="text-muted-foreground">Läuft ab</dt>
+          <dd class="text-foreground" title={absoluteTime(request.expires_at)}>
             {relativeTime(request.expires_at)}
           </dd>
           {#if request.submitted_at}
-            <dt class="text-slate-500">Eingereicht</dt>
-            <dd class="text-slate-900" title={absoluteTime(request.submitted_at)}>
+            <dt class="text-muted-foreground">Eingereicht</dt>
+            <dd class="text-foreground" title={absoluteTime(request.submitted_at)}>
               {relativeTime(request.submitted_at)}
             </dd>
           {/if}
           {#if request.retrieved_at}
-            <dt class="text-slate-500">Abgerufen</dt>
-            <dd class="text-slate-900" title={absoluteTime(request.retrieved_at)}>
+            <dt class="text-muted-foreground">Abgerufen</dt>
+            <dd class="text-foreground" title={absoluteTime(request.retrieved_at)}>
               {relativeTime(request.retrieved_at)}
             </dd>
           {/if}
           {#if request.view_count != null && request.view_count > 0}
-            <dt class="text-slate-500">Link geöffnet</dt>
-            <dd class="text-slate-900">
-              {request.view_count}× vom Kunden{#if request.status === 'pending' && !request.submitted_at}<span class="ml-1 text-amber-700">— aber noch keine Einreichung</span>{/if}
+            <dt class="text-muted-foreground">Link geöffnet</dt>
+            <dd class="text-foreground">
+              {request.view_count}× vom Kunden{#if request.status === 'pending' && !request.submitted_at}<span class="ml-1 text-warning">— aber noch keine Einreichung</span>{/if}
             </dd>
           {/if}
         </dl>
       </div>
 
-      <div class="border-b border-slate-100 px-6 py-4">
+      <div class="border-b border-border px-6 py-4">
         <ol class="space-y-2">
           {#each timelineState(request) as t (t.step)}
             <li class="flex items-center gap-3 text-sm">
               {#if t.state === 'done'}
-                <span class="grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-white">
+                <span class="grid h-5 w-5 place-items-center rounded-full bg-success text-background">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </span>
-                <span class="text-slate-700">{t.step}</span>
+                <span class="text-foreground">{t.step}</span>
               {:else if t.state === 'current'}
-                <span class="grid h-5 w-5 place-items-center rounded-full bg-slate-900">
-                  <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>
+                <span class="grid h-5 w-5 place-items-center rounded-full bg-accent">
+                  <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-card"></span>
                 </span>
-                <span class="font-medium text-slate-900">{t.step}</span>
+                <span class="font-medium text-foreground">{t.step}</span>
               {:else}
-                <span class="h-5 w-5 rounded-full border-2 border-dashed border-slate-300"></span>
-                <span class="text-slate-400">{t.step}</span>
+                <span class="h-5 w-5 rounded-full border-2 border-dashed border-border-strong"></span>
+                <span class="text-muted-foreground/70">{t.step}</span>
               {/if}
             </li>
           {/each}
@@ -241,9 +241,9 @@
 
       <div class="p-6">
         {#if request.status === 'pending'}
-          <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm">
-            <p class="font-medium text-slate-900">Wartet auf den Kunden</p>
-            <p class="mt-1 text-slate-600">
+          <div class="rounded-md border border-border bg-background p-4 text-sm">
+            <p class="font-medium text-foreground">Wartet auf den Kunden</p>
+            <p class="mt-1 text-muted-foreground">
               Sobald der Kunde einreicht, kannst du das Geheimnis hier mit einem Klick abrufen.
             </p>
 
@@ -253,7 +253,7 @@
                   <button
                     type="button"
                     onclick={() => (shareUrlVisible = true)}
-                    class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    class="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-background"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -266,33 +266,33 @@
                     <textarea
                       readonly
                       rows="3"
-                      class="w-full break-all rounded-md border border-slate-300 bg-white p-2 font-mono text-xs text-slate-900"
+                      class="w-full break-all rounded-md border border-border-strong bg-card p-2 font-mono text-xs text-foreground"
                       >{cachedShareUrl}</textarea
                     >
                     <div class="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onclick={copyShareUrl}
-                        class="inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+                        class="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-background hover:bg-accent-hover"
                       >
                         <Icon name={shareUrlCopied ? 'check' : 'copy'} size={12} />
                         <span>{shareUrlCopied ? 'Kopiert' : 'Kopieren'}</span>
                       </button>
                       <a
                         href={mailtoShare()}
-                        class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        class="rounded-md border border-border-strong bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-background"
                       >
                         Per Mail senden
                       </a>
                       <button
                         type="button"
                         onclick={() => (shareUrlVisible = false)}
-                        class="rounded-md px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                        class="rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
                         Verbergen
                       </button>
                     </div>
-                    <p class="text-[11px] text-slate-500">
+                    <p class="text-[11px] text-muted-foreground">
                       Hinweis: dieser Link existiert nur im Speicher dieses Tabs. Wenn du das Tab
                       schließt, ist er weg — dann musst du den Request canceln und neu anlegen.
                     </p>
@@ -304,7 +304,7 @@
             <button
               type="button"
               onclick={cancel}
-              class="mt-3 inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+              class="mt-3 inline-flex items-center gap-1.5 rounded-md border border-danger/30 bg-card px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6" />
@@ -315,29 +315,29 @@
           </div>
         {:else if request.status === 'submitted'}
           <div>
-            <h2 class="text-sm font-semibold text-slate-900">Geheimnis abrufen</h2>
-            <p class="mt-1 text-xs text-slate-600">
+            <h2 class="text-sm font-semibold text-foreground">Geheimnis abrufen</h2>
+            <p class="mt-1 text-xs text-muted-foreground">
               Ein Klick — deine entsperrte Session entwrappt den Schlüssel und entschlüsselt lokal.
               Der Server löscht den Chiffretext nach diesem Aufruf.
             </p>
             {#if decryptError}
-              <p class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{decryptError}</p>
+              <p class="mt-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{decryptError}</p>
             {/if}
             <button
               type="button"
               onclick={reveal}
               disabled={decrypting || !session.isUnlocked}
-              class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+              class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background shadow-sm hover:bg-accent-hover disabled:opacity-50"
             >
               {decrypting ? 'Entschlüssele …' : 'Abrufen & entschlüsseln'}
             </button>
           </div>
         {:else if request.status === 'expired'}
-          <div class="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <div class="rounded-md border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
             Dieser Request ist abgelaufen, ohne dass der Kunde eingereicht hat.
           </div>
         {:else if request.status === 'retrieved'}
-          <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <div class="rounded-md border border-border bg-background p-4 text-sm text-foreground">
             Das Geheimnis wurde bereits abgerufen und auf dem Server gelöscht. Es ist nicht erneut abrufbar.
           </div>
         {/if}
@@ -345,26 +345,26 @@
     </div>
 
     {#if decryptedFields !== null}
-      <div class="mt-4 rounded-xl border border-emerald-200 bg-white shadow-sm">
-        <div class="flex items-center justify-between gap-3 border-b border-emerald-100 bg-emerald-50 px-6 py-3">
+      <div class="mt-4 rounded-xl border border-success/30 bg-card shadow-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-success/30 bg-success/10 px-6 py-3">
           <div class="flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-700">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-success">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <h2 class="text-sm font-semibold text-emerald-900">Entschlüsselte Werte</h2>
+            <h2 class="text-sm font-semibold text-success">Entschlüsselte Werte</h2>
           </div>
         </div>
-        <ul class="divide-y divide-emerald-50">
+        <ul class="divide-y divide-border">
           {#each decryptedFields as { field, value } (field.id)}
             <li class="px-6 py-4">
               <div class="mb-1 flex items-center justify-between gap-2">
-                <span class="text-xs font-medium uppercase tracking-wide text-slate-500">{field.label}</span>
+                <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">{field.label}</span>
                 <div class="flex items-center gap-1">
                   {#if field.type === 'password'}
                     <button
                       type="button"
                       onclick={() => toggleReveal(field.id)}
-                      class="inline-flex items-center rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                      class="inline-flex items-center rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                       title={revealed[field.id] ? 'Verbergen' : 'Anzeigen'}
                       aria-label={revealed[field.id] ? 'Verbergen' : 'Anzeigen'}
                     >
@@ -374,7 +374,7 @@
                   <button
                     type="button"
                     onclick={() => copyFieldValue(field.id, value)}
-                    class="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-800"
+                    class="inline-flex items-center gap-1 rounded-md bg-success px-2 py-0.5 text-xs font-medium text-background hover:bg-success"
                   >
                     <Icon name={copiedField === field.id ? 'check' : 'copy'} size={12} />
                     <span>{copiedField === field.id ? 'Kopiert' : 'Kopieren'}</span>
@@ -382,18 +382,18 @@
                 </div>
               </div>
               {#if field.type === 'password' && !revealed[field.id]}
-                <div class="font-mono text-sm tracking-widest text-slate-700">
+                <div class="font-mono text-sm tracking-widest text-foreground">
                   {'•'.repeat(Math.min(value.length, 40))}
                 </div>
               {:else if field.type === 'textarea'}
-                <pre class="whitespace-pre-wrap break-words rounded-md bg-slate-50 p-2 font-mono text-sm text-slate-900">{value}</pre>
+                <pre class="whitespace-pre-wrap break-words rounded-md bg-background p-2 font-mono text-sm text-foreground">{value}</pre>
               {:else}
-                <div class="select-all break-all rounded-md bg-slate-50 p-2 font-mono text-sm text-slate-900">{value}</div>
+                <div class="select-all break-all rounded-md bg-background p-2 font-mono text-sm text-foreground">{value}</div>
               {/if}
             </li>
           {/each}
         </ul>
-        <p class="border-t border-emerald-100 px-6 py-2 text-xs text-emerald-700">
+        <p class="border-t border-success/30 px-6 py-2 text-xs text-success">
           Kopiere die Werte oder schließe das Tab, wenn du fertig bist. Der Server hat keinen Zugriff mehr darauf.
         </p>
       </div>

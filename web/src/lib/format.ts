@@ -37,15 +37,15 @@ export const statusLabel: Record<Status, string> = {
 };
 
 export const statusBadge: Record<Status, string> = {
-  pending: 'bg-amber-50 text-amber-800 ring-amber-200',
-  submitted: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-  retrieved: 'bg-slate-100 text-slate-700 ring-slate-200',
-  expired: 'bg-rose-50 text-rose-800 ring-rose-200'
+  pending: 'bg-warning/10 text-warning ring-warning/30',
+  submitted: 'bg-success/10 text-success ring-success/30',
+  retrieved: 'bg-muted text-muted-foreground ring-border',
+  expired: 'bg-danger/10 text-danger ring-danger/30'
 };
 
 export const statusDot: Record<Status, string> = {
-  pending: 'bg-amber-500',
-  submitted: 'bg-emerald-500',
-  retrieved: 'bg-slate-400',
-  expired: 'bg-rose-500'
+  pending: 'bg-warning',
+  submitted: 'bg-success',
+  retrieved: 'bg-muted-foreground',
+  expired: 'bg-danger'
 };

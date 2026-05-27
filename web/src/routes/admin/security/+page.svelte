@@ -90,23 +90,23 @@
 
 <div class="mx-auto max-w-3xl px-6 py-8">
   <header class="mb-6">
-    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Security</h1>
-    <p class="mt-1 text-sm text-slate-600">
+    <h1 class="text-2xl font-semibold tracking-tight text-foreground">Security</h1>
+    <p class="mt-1 text-sm text-muted-foreground">
       Verwalte deine WebAuthn-Authenticators. Wir empfehlen mindestens zwei (Primary + Backup im Safe).
     </p>
   </header>
 
   <!-- Backup-warning -->
   {#if credentials.length === 1}
-    <div class="mb-6 flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-4">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 text-amber-700">
+    <div class="mb-6 flex gap-3 rounded-md border border-warning/30 bg-warning/10 p-4">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 text-warning">
         <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
         <line x1="12" y1="9" x2="12" y2="13" />
         <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
-      <div class="text-sm text-amber-900">
+      <div class="text-sm text-warning">
         <p class="font-medium">Kein Backup-Key registriert</p>
-        <p class="mt-1 text-amber-800">
+        <p class="mt-1 text-warning">
           Wenn dein einziger Key verloren oder defekt geht, kannst du keine Sessions mehr entsperren und nichts mehr abrufen.
           Registriere jetzt einen zweiten Key und hinterlege ihn im Safe.
         </p>
@@ -115,32 +115,32 @@
   {/if}
 
   <!-- Existing credentials -->
-  <div class="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="border-b border-slate-100 px-6 py-3 text-sm font-medium text-slate-900">
+  <div class="mb-6 rounded-xl border border-border bg-card shadow-sm">
+    <div class="border-b border-border px-6 py-3 text-sm font-medium text-foreground">
       Registrierte Keys ({credentials.length})
     </div>
     {#if loading}
-      <div class="p-6 text-sm text-slate-500">Lade …</div>
+      <div class="p-6 text-sm text-muted-foreground">Lade …</div>
     {:else if error}
-      <div class="p-6 text-sm text-rose-700">{error}</div>
+      <div class="p-6 text-sm text-danger">{error}</div>
     {:else if credentials.length === 0}
-      <div class="p-6 text-sm text-slate-500">Keine Keys registriert.</div>
+      <div class="p-6 text-sm text-muted-foreground">Keine Keys registriert.</div>
     {:else}
-      <ul class="divide-y divide-slate-100">
+      <ul class="divide-y divide-border">
         {#each credentials as c (c.id)}
           <li class="flex items-center justify-between gap-3 px-6 py-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
                   <rect x="3" y="11" width="18" height="11" rx="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
-                <span class="text-sm font-medium text-slate-900">{c.label}</span>
+                <span class="text-sm font-medium text-foreground">{c.label}</span>
                 {#if c.transports.length > 0}
-                  <span class="text-xs text-slate-500">{c.transports.join(', ')}</span>
+                  <span class="text-xs text-muted-foreground">{c.transports.join(', ')}</span>
                 {/if}
               </div>
-              <p class="mt-0.5 text-xs text-slate-500">
+              <p class="mt-0.5 text-xs text-muted-foreground">
                 Registriert <span title={absoluteTime(c.created_at)}>{relativeTime(c.created_at)}</span>
                 {#if c.last_used_at}
                   · Zuletzt benutzt <span title={absoluteTime(c.last_used_at)}>{relativeTime(c.last_used_at)}</span>
@@ -153,7 +153,7 @@
               type="button"
               onclick={() => revoke(c)}
               disabled={credentials.length <= 1}
-              class="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+              class="rounded-md border border-danger/30 px-2 py-1 text-xs text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
               title={credentials.length <= 1 ? 'Letzter Key — nicht entfernbar' : 'Diesen Key entfernen'}
             >
               Entfernen
@@ -165,38 +165,38 @@
   </div>
 
   <!-- Add new credential -->
-  <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="border-b border-slate-200 px-6 py-3">
-      <h2 class="text-sm font-medium text-slate-900">Backup-Key hinzufügen</h2>
-      <p class="mt-0.5 text-xs text-slate-600">
+  <div class="rounded-xl border border-border bg-card shadow-sm">
+    <div class="border-b border-border px-6 py-3">
+      <h2 class="text-sm font-medium text-foreground">Backup-Key hinzufügen</h2>
+      <p class="mt-0.5 text-xs text-muted-foreground">
         Tippe den neuen Key an. Dein bestehender Master-Schlüssel wird zusätzlich mit dem PRF dieses Keys
         gewrappt — beide Keys entsperren danach dieselbe Session.
       </p>
     </div>
     <form onsubmit={addBackup} class="flex items-end gap-2 p-4">
       <div class="flex-1">
-        <label for="newlabel" class="block text-xs font-medium text-slate-600">Bezeichnung</label>
+        <label for="newlabel" class="block text-xs font-medium text-muted-foreground">Bezeichnung</label>
         <input
           id="newlabel"
           required
           maxlength="64"
           bind:value={label}
-          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+          class="mt-1 block w-full rounded-md border border-border-strong px-3 py-1.5 text-sm shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>
       <button
         type="submit"
         disabled={adding || !session.isUnlocked}
-        class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+        class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background shadow-sm hover:bg-accent-hover disabled:opacity-50"
       >
         {adding ? 'Warte auf Key …' : 'Registrieren'}
       </button>
     </form>
     {#if addError}
-      <p class="mx-4 mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{addError}</p>
+      <p class="mx-4 mb-4 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{addError}</p>
     {/if}
     {#if !session.isUnlocked}
-      <p class="mx-4 mb-4 text-xs text-slate-500">
+      <p class="mx-4 mb-4 text-xs text-muted-foreground">
         Session muss entsperrt sein — Lock-Button oben rechts deaktiviert die Session.
       </p>
     {/if}

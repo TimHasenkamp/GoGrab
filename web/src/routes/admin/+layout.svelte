@@ -8,6 +8,7 @@
   import { authenticate } from '$lib/webauthn';
   import Toaster from '$lib/Toaster.svelte';
   import ConfirmDialog from '$lib/ConfirmDialog.svelte';
+  import Icon from '$lib/Icon.svelte';
 
   let { children } = $props();
 
@@ -68,60 +69,57 @@
   }
 </script>
 
-<div class="min-h-screen bg-slate-50 text-slate-900">
-  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
+<div class="min-h-screen bg-background text-foreground">
+  <header class="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
     <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
-      <a href="/admin" class="flex items-center gap-2 text-slate-900">
-        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-900 text-white">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
+      <a href="/admin" class="flex items-center gap-2.5 text-foreground">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-accent text-background shadow-accent-glow">
+          <Icon name="lock" size={16} strokeWidth={2.5} />
         </span>
         <div class="leading-tight">
-          <div class="text-sm font-semibold">GoGrab</div>
-          <div class="text-[11px] text-slate-500">Secret requests</div>
+          <div class="text-sm font-semibold tracking-tight">GoGrab</div>
+          <div class="text-[11px] text-muted-foreground">
+            Secret requests<span class="text-accent">.</span>
+          </div>
         </div>
       </a>
 
-      <nav class="flex items-center gap-2">
+      <nav class="flex items-center gap-1">
         {#if session.isUnlocked}
           <a
             href="/admin"
             class="rounded-md px-3 py-1.5 text-sm font-medium {isList
-              ? 'bg-slate-100 text-slate-900'
-              : 'text-slate-600 hover:text-slate-900'}"
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:text-foreground'}"
           >
             Requests
           </a>
           <a
             href="/admin/security"
-            class="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
+            class="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
             Security
           </a>
           <a
             href="/admin/audit"
-            class="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
+            class="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
             Audit
           </a>
           <a
             href="/admin/new"
-            class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+            class="ml-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-background transition hover:bg-accent-hover hover:shadow-accent-glow"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+            <Icon name="plus" size={14} strokeWidth={2.5} />
             Neuer Request
           </a>
           <button
             type="button"
             onclick={lock}
-            class="ml-2 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
+            class="ml-2 inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:border-border-strong hover:text-foreground"
             title="Session sperren"
           >
+            <Icon name="log-out" size={12} />
             Lock
           </button>
         {/if}
@@ -131,31 +129,30 @@
 
   <main>
     {#if booting}
-      <div class="mx-auto max-w-2xl p-8 text-sm text-slate-500">Lade …</div>
+      <div class="mx-auto max-w-2xl p-8 text-sm text-muted-foreground">Lade …</div>
     {:else if bootError}
       <div class="mx-auto max-w-2xl p-8">
-        <div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        <div class="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
           {bootError}
         </div>
       </div>
     {:else if isSetup || (session.hasCredentials && session.isUnlocked)}
       {@render children?.()}
     {:else if session.hasCredentials && !session.isUnlocked}
-      <!-- Unlock overlay -->
       <div class="mx-auto max-w-md px-6 py-12">
-        <div class="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-600">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
+        <div class="rounded-xl border border-border bg-card p-6 text-center">
+          <div
+            class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent"
+          >
+            <Icon name="lock" size={22} strokeWidth={1.8} />
           </div>
-          <h1 class="text-base font-semibold text-slate-900">Session entsperren</h1>
-          <p class="mt-1 text-sm text-slate-600">
-            Tippe deinen YubiKey an, um den Master-Schlüssel zu laden. Bleibt bis du diesen Tab schließt.
+          <h1 class="text-base font-semibold tracking-tight text-foreground">Session entsperren</h1>
+          <p class="mt-1 text-sm text-muted-foreground">
+            Tippe deinen YubiKey an, um den Master-Schlüssel zu laden. Bleibt bis du diesen Tab
+            schließt.
           </p>
           {#if unlockError}
-            <p class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            <p class="mt-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
               {unlockError}
             </p>
           {/if}
@@ -163,7 +160,7 @@
             type="button"
             onclick={unlock}
             disabled={unlocking}
-            class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+            class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background transition hover:bg-accent-hover hover:shadow-accent-glow disabled:opacity-50"
           >
             {unlocking ? 'Warte auf YubiKey …' : 'Mit YubiKey entsperren'}
           </button>

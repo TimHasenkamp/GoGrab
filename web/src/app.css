@@ -1,3 +1,84 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Geist via Google Fonts. Variable font, swap display for fast first paint. */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
+
+/* Design tokens — mirrored from hasenkamp.dev so GoGrab's admin shares
+   the same visual language. Dark theme by design; no light counterpart. */
+:root {
+  --background: #0a0a0f;
+  --foreground: #e4e4e7;
+  --card: #111118;
+  --muted: #12121a;
+  --muted-foreground: #71717a;
+  --border: #1e1e2e;
+  --border-strong: #2a2a3d;
+  --primary: #ffffff;
+  --accent: #00e5ff;
+  --accent-hover: #00b8d4;
+  --accent-glow: #00e5ff26;
+  --ring: #00e5ff;
+
+  --success: #05df72;
+  --warning: #fac800;
+  --danger: #ff6568;
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+body {
+  min-height: 100dvh;
+}
+
+/* Selection in cyan to reinforce the accent. */
+::selection {
+  background: var(--accent-glow);
+  color: var(--foreground);
+}
+
+/* Scrollbar: thin, dark, accent thumb. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 2px solid var(--background);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-hover);
+}
+
+/* Form controls: dark base, cyan ring on focus. Tailwind's defaults
+   assume light mode and clash otherwise. */
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+/* Accent glow utility — used on primary buttons. */
+.shadow-accent-glow {
+  box-shadow: 0 0 0 1px var(--accent-glow), 0 8px 28px -8px var(--accent-glow);
+}

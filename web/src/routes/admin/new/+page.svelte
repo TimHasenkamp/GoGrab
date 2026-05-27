@@ -132,7 +132,7 @@
 <svelte:head><title>GoGrab — Neuer Request</title></svelte:head>
 
 <div class="mx-auto max-w-2xl px-6 py-8">
-  <a href="/admin" class="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+  <a href="/admin" class="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="15 18 9 12 15 6" />
     </svg>
@@ -141,15 +141,15 @@
 
   {#if shareUrl}
     <!-- Success / share screen -->
-    <div class="rounded-xl border border-emerald-200 bg-white shadow-sm">
-      <div class="border-b border-emerald-100 bg-emerald-50 px-6 py-4">
+    <div class="rounded-xl border border-success/30 bg-card shadow-sm">
+      <div class="border-b border-success/30 bg-success/10 px-6 py-4">
         <div class="flex items-center gap-2">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-700">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-success">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          <h1 class="text-lg font-semibold text-emerald-900">Request angelegt</h1>
+          <h1 class="text-lg font-semibold text-success">Request angelegt</h1>
         </div>
-        <p class="mt-1 text-sm text-emerald-800">
+        <p class="mt-1 text-sm text-success">
           Schicke diesen Link an deinen Kunden. Er gibt dort das Geheimnis ein.
         </p>
       </div>
@@ -158,13 +158,13 @@
         <!-- The URL -->
         <div>
           <div class="mb-1 flex items-center justify-between">
-            <label for="share" class="text-xs font-medium uppercase tracking-wide text-slate-600">
+            <label for="share" class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Share-URL
             </label>
             <button
               type="button"
               onclick={copyShare}
-              class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-slate-800"
+              class="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-background shadow-sm hover:bg-accent-hover"
             >
               {#if copied}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -184,15 +184,15 @@
             id="share"
             readonly
             rows="3"
-            class="w-full break-all rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-xs text-slate-900"
+            class="w-full break-all rounded-md border border-border-strong bg-background p-3 font-mono text-xs text-foreground"
             >{shareUrl}</textarea
           >
         </div>
 
         <!-- What now -->
-        <div class="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-          <p class="font-medium text-slate-900">Was passiert jetzt?</p>
-          <ol class="mt-1 list-decimal space-y-0.5 pl-4 text-slate-700">
+        <div class="rounded-md border border-border bg-background p-3 text-sm text-foreground">
+          <p class="font-medium text-foreground">Was passiert jetzt?</p>
+          <ol class="mt-1 list-decimal space-y-0.5 pl-4 text-foreground">
             <li>Schicke den Link per Mail / Messenger an den Kunden.</li>
             <li>
               Sobald er einreicht, klick im Request-Detail auf <em>Abrufen</em> — deine
@@ -200,7 +200,7 @@
             </li>
             <li>Beim Abruf wird der Chiffretext einmalig gelesen und auf dem Server gelöscht.</li>
           </ol>
-          <p class="mt-2 text-xs text-slate-500">
+          <p class="mt-2 text-xs text-muted-foreground">
             Den Link musst du dir nicht merken — der Schlüssel liegt mehrfach verschlüsselt auch in deiner Datenbank.
           </p>
         </div>
@@ -208,7 +208,7 @@
         <div class="flex flex-wrap gap-2 pt-2">
           <a
             href={mailtoHref()}
-            class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+            class="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background shadow-sm hover:bg-accent-hover"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
@@ -218,13 +218,13 @@
           </a>
           <a
             href="/admin/{requestId}"
-            class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            class="rounded-md border border-border-strong bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-background"
           >
             Zum Request
           </a>
           <a
             href="/admin/new"
-            class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            class="rounded-md border border-border-strong bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-background"
           >
             Noch einen anlegen
           </a>
@@ -233,55 +233,55 @@
     </div>
   {:else}
     <!-- Form -->
-    <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-6 py-4">
-        <h1 class="text-lg font-semibold text-slate-900">Neuer Secret-Request</h1>
-        <p class="mt-1 text-sm text-slate-600">
+    <div class="rounded-xl border border-border bg-card shadow-sm">
+      <div class="border-b border-border px-6 py-4">
+        <h1 class="text-lg font-semibold text-foreground">Neuer Secret-Request</h1>
+        <p class="mt-1 text-sm text-muted-foreground">
           Beschreibe, was der Kunde eingeben soll. Der Inhalt wird im Browser des Kunden verschlüsselt — der Server bekommt nie Klartext zu sehen.
         </p>
       </div>
 
       <form onsubmit={submit} class="space-y-5 p-6">
         <div>
-          <label for="desc" class="block text-sm font-medium text-slate-700">
+          <label for="desc" class="block text-sm font-medium text-foreground">
             Beschreibung
-            <span class="font-normal text-slate-500">— dem Kunden angezeigt</span>
+            <span class="font-normal text-muted-foreground">— dem Kunden angezeigt</span>
           </label>
           <input
             id="desc"
             required
             maxlength="200"
             bind:value={description}
-            class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            class="mt-1 block w-full rounded-md border border-border-strong px-3 py-2 text-sm shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             placeholder="z.B. Bitte hinterlege dein WLAN-Passwort"
           />
-          <p class="mt-1 text-xs text-slate-500">
+          <p class="mt-1 text-xs text-muted-foreground">
             {description.length}/200 Zeichen
           </p>
         </div>
 
         <div>
-          <span class="block text-sm font-medium text-slate-700">Ablaufzeit</span>
+          <span class="block text-sm font-medium text-foreground">Ablaufzeit</span>
           <div class="mt-2 flex flex-wrap gap-2">
             {#each expiryPresets as p (p.hours)}
               <button
                 type="button"
                 onclick={() => (expiresInHours = p.hours)}
                 class="rounded-md border px-3 py-1.5 text-sm font-medium transition {expiresInHours === p.hours
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'}"
+                  ? 'border-accent bg-accent text-background'
+                  : 'border-border-strong bg-card text-foreground hover:border-accent'}"
               >
                 {p.label}
               </button>
             {/each}
-            <label class="flex items-center gap-2 text-sm text-slate-600">
+            <label class="flex items-center gap-2 text-sm text-muted-foreground">
               <span>oder</span>
               <input
                 type="number"
                 min="1"
                 max="720"
                 bind:value={expiresInHours}
-                class="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                class="w-20 rounded-md border border-border-strong px-2 py-1 text-sm"
               />
               <span>h</span>
             </label>
@@ -292,8 +292,8 @@
         <div>
           <div class="flex items-start justify-between gap-3">
             <div>
-              <span class="text-sm font-medium text-slate-700">Formular</span>
-              <p class="mt-0.5 text-xs text-slate-500">
+              <span class="text-sm font-medium text-foreground">Formular</span>
+              <p class="mt-0.5 text-xs text-muted-foreground">
                 {#if customForm}
                   Du baust eigene Felder. Bei Passwort-Feldern bekommt der Kunde einen Generator.
                 {:else}
@@ -305,11 +305,11 @@
               class="flex shrink-0 cursor-pointer items-center gap-2"
               title={customForm ? 'Zurück zu Standard-Textfeld' : 'Eigenes Formular bauen'}
             >
-              <span class="text-xs font-medium text-slate-600">{customForm ? 'an' : 'aus'}</span>
+              <span class="text-xs font-medium text-muted-foreground">{customForm ? 'an' : 'aus'}</span>
               <span class="relative inline-block h-5 w-9">
                 <input type="checkbox" bind:checked={customForm} class="peer sr-only" />
-                <span class="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-slate-900"></span>
-                <span class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4"></span>
+                <span class="absolute inset-0 rounded-full bg-border-strong transition-colors peer-checked:bg-accent"></span>
+                <span class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-card shadow transition-transform peer-checked:translate-x-4"></span>
               </span>
             </label>
           </div>
@@ -317,19 +317,19 @@
           {#if customForm}
           <div class="mt-3">
           <div class="mb-2 flex items-center justify-end">
-            <span class="text-xs text-slate-500">{fields.length} / {MAX_FIELDS} Felder</span>
+            <span class="text-xs text-muted-foreground">{fields.length} / {MAX_FIELDS} Felder</span>
           </div>
 
           <ul class="space-y-2">
             {#each fields as f, idx (idx)}
-              <li class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <li class="rounded-lg border border-border bg-background p-3">
                 <div class="flex items-start gap-2">
                   <div class="flex flex-col gap-0.5">
                     <button
                       type="button"
                       onclick={() => moveField(idx, -1)}
                       disabled={idx === 0}
-                      class="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+                      class="rounded p-0.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground disabled:opacity-30"
                       title="Hoch"
                       aria-label="Hoch"
                     >
@@ -339,7 +339,7 @@
                       type="button"
                       onclick={() => moveField(idx, 1)}
                       disabled={idx === fields.length - 1}
-                      class="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+                      class="rounded p-0.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground disabled:opacity-30"
                       title="Runter"
                       aria-label="Runter"
                     >
@@ -349,7 +349,7 @@
 
                   <div class="grid flex-1 grid-cols-12 gap-2">
                     <div class="col-span-12 sm:col-span-7">
-                      <label class="text-[11px] font-medium uppercase tracking-wide text-slate-500" for="label-{idx}">
+                      <label class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground" for="label-{idx}">
                         Label
                       </label>
                       <input
@@ -358,18 +358,18 @@
                         maxlength={MAX_LABEL}
                         bind:value={fields[idx]!.label}
                         onblur={() => commitLabel(idx)}
-                        class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        class="mt-0.5 block w-full rounded-md border border-border-strong bg-card px-2 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                         placeholder="z.B. WLAN-Passwort"
                       />
                     </div>
                     <div class="col-span-12 sm:col-span-5">
-                      <label class="text-[11px] font-medium uppercase tracking-wide text-slate-500" for="type-{idx}">
+                      <label class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground" for="type-{idx}">
                         Typ
                       </label>
                       <select
                         id="type-{idx}"
                         bind:value={fields[idx]!.type}
-                        class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        class="mt-0.5 block w-full rounded-md border border-border-strong bg-card px-2 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                       >
                         <option value="text">{fieldTypeLabel.text}</option>
                         <option value="password">{fieldTypeLabel.password}</option>
@@ -377,14 +377,14 @@
                       </select>
                     </div>
                     <div class="col-span-12">
-                      <label class="text-[11px] font-medium uppercase tracking-wide text-slate-500" for="ph-{idx}">
-                        Platzhalter <span class="font-normal lowercase text-slate-400">— optional, Hilfetext im leeren Feld</span>
+                      <label class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground" for="ph-{idx}">
+                        Platzhalter <span class="font-normal lowercase text-muted-foreground/70">— optional, Hilfetext im leeren Feld</span>
                       </label>
                       <input
                         id="ph-{idx}"
                         maxlength={MAX_PLACEHOLDER}
                         bind:value={fields[idx]!.placeholder}
-                        class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        class="mt-0.5 block w-full rounded-md border border-border-strong bg-card px-2 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                         placeholder="z.B. FritzBox-Standard…"
                       />
                     </div>
@@ -393,7 +393,7 @@
                   <button
                     type="button"
                     onclick={() => removeField(idx)}
-                    class="rounded p-1 text-slate-400 hover:bg-rose-100 hover:text-rose-700"
+                    class="rounded p-1 text-muted-foreground/70 hover:bg-danger/20 hover:text-danger"
                     title="Feld entfernen"
                     aria-label="Feld entfernen"
                   >
@@ -412,7 +412,7 @@
               type="button"
               onclick={() => addField('text')}
               disabled={fields.length >= MAX_FIELDS}
-              class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              class="inline-flex items-center gap-1 rounded-md border border-border-strong bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-background disabled:opacity-50"
             >
               + Text
             </button>
@@ -420,7 +420,7 @@
               type="button"
               onclick={() => addField('password')}
               disabled={fields.length >= MAX_FIELDS}
-              class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              class="inline-flex items-center gap-1 rounded-md border border-border-strong bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-background disabled:opacity-50"
             >
               + Passwort
             </button>
@@ -428,7 +428,7 @@
               type="button"
               onclick={() => addField('textarea')}
               disabled={fields.length >= MAX_FIELDS}
-              class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              class="inline-flex items-center gap-1 rounded-md border border-border-strong bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-background disabled:opacity-50"
             >
               + Mehrzeilig
             </button>
@@ -438,16 +438,16 @@
         </div>
 
         {#if error}
-          <div class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          <div class="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
             {error}
           </div>
         {/if}
 
-        <div class="flex items-center gap-3 border-t border-slate-100 pt-4">
+        <div class="flex items-center gap-3 border-t border-border pt-4">
           <button
             type="submit"
             disabled={submitting || !description.trim()}
-            class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background shadow-sm hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {#if submitting}
               <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -465,7 +465,7 @@
               Request anlegen
             {/if}
           </button>
-          <a href="/admin" class="text-sm text-slate-500 hover:text-slate-900">Abbrechen</a>
+          <a href="/admin" class="text-sm text-muted-foreground hover:text-foreground">Abbrechen</a>
         </div>
       </form>
     </div>
@@ -477,12 +477,12 @@
         { n: 2, t: 'Link teilen', d: 'Der Kunde öffnet ihn und gibt das Geheimnis ein.' },
         { n: 3, t: 'Einmalig abrufen', d: 'Du entschlüsselst lokal. Der Server löscht den Chiffretext.' }
       ] as step (step.n)}
-        <div class="rounded-lg border border-slate-200 bg-white p-3">
-          <div class="grid h-6 w-6 place-items-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+        <div class="rounded-lg border border-border bg-card p-3">
+          <div class="grid h-6 w-6 place-items-center rounded-full bg-accent text-xs font-semibold text-background">
             {step.n}
           </div>
-          <div class="mt-2 text-sm font-medium text-slate-900">{step.t}</div>
-          <div class="mt-0.5 text-xs text-slate-600">{step.d}</div>
+          <div class="mt-2 text-sm font-medium text-foreground">{step.t}</div>
+          <div class="mt-0.5 text-xs text-muted-foreground">{step.d}</div>
         </div>
       {/each}
     </div>

@@ -4,4 +4,4 @@
   onMount(() => goto('/admin', { replaceState: true }));
 </script>
 
-<p style="padding:2rem;color:#64748b;font-family:system-ui;">Lade …</p>
+<p style="padding:2rem;color:#71717a;font-family:Geist,ui-sans-serif,system-ui,sans-serif;">Lade …</p>

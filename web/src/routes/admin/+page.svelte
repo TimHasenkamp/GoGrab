@@ -39,7 +39,6 @@
 
   onMount(refresh);
 
-  // Debounced search: wait 250ms after the last keystroke before refetching.
   function onSearchInput(v: string) {
     searchInput = v;
     if (searchTimer) clearTimeout(searchTimer);
@@ -71,15 +70,9 @@
   );
 
   function statusLine(r: AdminRequestSummary): string {
-    if (r.status === 'submitted' && r.submitted_at) {
-      return `Eingereicht ${relativeTime(r.submitted_at)}`;
-    }
-    if (r.status === 'retrieved' && r.retrieved_at) {
-      return `Abgerufen ${relativeTime(r.retrieved_at)}`;
-    }
-    if (r.status === 'expired') {
-      return `Abgelaufen ${relativeTime(r.expires_at)}`;
-    }
+    if (r.status === 'submitted' && r.submitted_at) return `Eingereicht ${relativeTime(r.submitted_at)}`;
+    if (r.status === 'retrieved' && r.retrieved_at) return `Abgerufen ${relativeTime(r.retrieved_at)}`;
+    if (r.status === 'expired') return `Abgelaufen ${relativeTime(r.expires_at)}`;
     return `Läuft ab ${relativeTime(r.expires_at)}`;
   }
 </script>
@@ -89,28 +82,28 @@
 <div class="mx-auto max-w-5xl px-6 py-8">
   <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Deine Requests</h1>
-      <p class="mt-1 text-sm text-slate-600">
+      <h1 class="text-2xl font-semibold tracking-tight text-foreground">
+        Deine Requests<span class="text-accent">.</span>
+      </h1>
+      <p class="mt-1 text-sm text-muted-foreground">
         Erstelle einen verschlüsselten Link, schicke ihn an deinen Kunden, lese die Antwort einmalig aus.
       </p>
     </div>
     <label class="relative block w-full sm:w-64">
       <span class="sr-only">Suchen</span>
-      <svg class="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
+      <span class="pointer-events-none absolute left-2.5 top-2.5 text-muted-foreground">
+        <Icon name="search" size={16} />
+      </span>
       <input
         type="search"
         placeholder="Beschreibung durchsuchen…"
         value={searchInput}
         oninput={(e) => onSearchInput((e.currentTarget as HTMLInputElement).value)}
-        class="block w-full rounded-md border border-slate-300 bg-white pl-8 pr-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+        class="block w-full rounded-md border border-border bg-card pl-8 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
       />
     </label>
   </div>
 
-  <!-- Stats -->
   <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
     {#each [
       { key: 'pending', label: 'Offen' },
@@ -121,29 +114,28 @@
       <button
         type="button"
         onclick={() => (filter = filter === (s.key as Status) ? 'all' : (s.key as Status))}
-        class="group rounded-lg border bg-white p-3 text-left transition {filter === s.key
-          ? 'border-slate-900 ring-2 ring-slate-900/10'
-          : 'border-slate-200 hover:border-slate-300'}"
+        class="group rounded-lg border bg-card p-3 text-left transition {filter === s.key
+          ? 'border-accent shadow-accent-glow'
+          : 'border-border hover:border-border-strong'}"
       >
-        <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+        <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           <span class="inline-block h-2 w-2 rounded-full {statusDot[s.key as Status]}"></span>
           {s.label}
         </div>
-        <div class="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
+        <div class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
           {counts[s.key as Status]}
         </div>
       </button>
     {/each}
   </div>
 
-  <!-- Filter pill row -->
   <div class="mb-4 flex flex-wrap items-center gap-2">
     <button
       type="button"
       onclick={() => (filter = 'all')}
       class="rounded-full px-3 py-1 text-xs font-medium {filter === 'all'
-        ? 'bg-slate-900 text-white'
-        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}"
+        ? 'bg-accent text-background'
+        : 'bg-muted text-muted-foreground hover:text-foreground'}"
     >
       Alle ({requests.length})
     </button>
@@ -153,8 +145,8 @@
           type="button"
           onclick={() => (filter = s as Status)}
           class="rounded-full px-3 py-1 text-xs font-medium {filter === s
-            ? 'bg-slate-900 text-white'
-            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}"
+            ? 'bg-accent text-background'
+            : 'bg-muted text-muted-foreground hover:text-foreground'}"
         >
           {statusLabel[s as Status]} ({counts[s as Status]})
         </button>
@@ -164,7 +156,7 @@
       <button
         type="button"
         onclick={refresh}
-        class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+        class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
         title="Neu laden"
       >
         <Icon name="refresh-cw" size={12} />
@@ -173,46 +165,36 @@
     </div>
   </div>
 
-  <!-- List -->
   {#if loading}
     <div class="space-y-2">
       {#each Array(3) as _, i (i)}
-        <div class="h-20 animate-pulse rounded-lg border border-slate-200 bg-white"></div>
+        <div class="h-20 animate-pulse rounded-lg border border-border bg-card"></div>
       {/each}
     </div>
   {:else if error}
-    <div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+    <div class="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
       Fehler: {error}
     </div>
   {:else if requests.length === 0}
-    <!-- Empty state -->
-    <div class="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center">
-      <div class="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-500">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="12" y1="12" x2="12" y2="18" />
-          <line x1="9" y1="15" x2="15" y2="15" />
-        </svg>
+    <div class="rounded-lg border border-dashed border-border-strong bg-card py-16 text-center">
+      <div class="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+        <Icon name="file-text" size={24} strokeWidth={1.8} />
       </div>
-      <h2 class="text-base font-semibold text-slate-900">Noch keine Requests</h2>
-      <p class="mx-auto mt-1 max-w-md text-sm text-slate-600">
+      <h2 class="text-base font-semibold tracking-tight text-foreground">Noch keine Requests</h2>
+      <p class="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
         Lege einen Secret-Request an, kopiere den Link aus dem Browser und schicke ihn deinem Kunden.
         Der Kunde gibt das Geheimnis ein — du holst es einmalig ab.
       </p>
       <a
         href="/admin/new"
-        class="mt-5 inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+        class="mt-5 inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background transition hover:bg-accent-hover hover:shadow-accent-glow"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
+        <Icon name="plus" size={14} strokeWidth={2.5} />
         Ersten Request anlegen
       </a>
     </div>
   {:else if filtered.length === 0}
-    <div class="rounded-lg border border-dashed border-slate-300 bg-white py-12 text-center text-sm text-slate-500">
+    <div class="rounded-lg border border-dashed border-border-strong bg-card py-12 text-center text-sm text-muted-foreground">
       Keine Requests mit Filter „{statusLabel[filter as Status]}".
     </div>
   {:else}
@@ -221,14 +203,14 @@
         <li>
           <a
             href="/admin/{r.id}"
-            class="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
+            class="group flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 transition hover:border-accent hover:shadow-accent-glow"
           >
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <span class="inline-block h-2 w-2 shrink-0 rounded-full {statusDot[r.status as Status]}"></span>
-                <h3 class="truncate text-sm font-medium text-slate-900">{r.description}</h3>
+                <h3 class="truncate text-sm font-medium text-foreground">{r.description}</h3>
               </div>
-              <p class="mt-1 ml-4 truncate text-xs text-slate-500">
+              <p class="mt-1 ml-4 truncate text-xs text-muted-foreground">
                 {statusLine(r)}
                 <span class="mx-1">·</span>
                 <span title={absoluteTime(r.created_at)}>angelegt {relativeTime(r.created_at)}</span>
@@ -237,36 +219,36 @@
             <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 {statusBadge[r.status as Status]}">
               {statusLabel[r.status as Status]}
             </span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-slate-400">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
+            <span class="shrink-0 text-muted-foreground group-hover:text-accent">
+              <Icon name="chevron-right" size={16} />
+            </span>
           </a>
         </li>
       {/each}
     </ul>
 
     {#if total > PAGE_SIZE}
-      <div class="mt-4 flex items-center justify-between text-sm text-slate-600">
+      <div class="mt-4 flex items-center justify-between text-sm text-muted-foreground">
         <span>
           {offset + 1}–{Math.min(offset + requests.length, total)} von {total}
-          {#if search}<span class="ml-1 text-slate-400">(gefiltert)</span>{/if}
+          {#if search}<span class="ml-1 text-muted-foreground/60">(gefiltert)</span>{/if}
         </span>
         <div class="flex items-center gap-1">
           <button
             type="button"
             onclick={() => go(-PAGE_SIZE)}
             disabled={offset === 0}
-            class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+            class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground hover:border-border-strong disabled:opacity-40"
           >
             <Icon name="chevron-left" size={14} />
             <span>Vor</span>
           </button>
-          <span class="px-2 text-xs text-slate-500">Seite {page} / {lastPage}</span>
+          <span class="px-2 text-xs text-muted-foreground">Seite {page} / {lastPage}</span>
           <button
             type="button"
             onclick={() => go(PAGE_SIZE)}
             disabled={offset + PAGE_SIZE >= total}
-            class="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+            class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground hover:border-border-strong disabled:opacity-40"
           >
             <span>Weiter</span>
             <Icon name="chevron-right" size={14} />
