@@ -15,10 +15,10 @@ sind die, die ich vor v1.0-tag erledigt hätte.
 - [x] **#2 Migrate-on-Boot.** Migrations sind via `//go:embed` ins Binary
   gepackt. `gograb migrate {up,down,status,version,redo,reset}` als
   Subcommand, plus `GOGRAB_MIGRATE_ON_BOOT=1` für Auto-Apply beim Start.
-- [ ] **#3 Trusted-Proxy-CIDR-Check.** `X-Authentik-Username`-Header nur
-  akzeptieren, wenn `RemoteAddr` in einem konfigurierten Netz liegt
-  (`GOGRAB_TRUSTED_PROXY_CIDR`). Verhindert Auth-Bypass falls der Port
-  versehentlich direkt exposed wird.
+- [x] **#3 Trusted-Proxy-CIDR-Check.** `GOGRAB_TRUSTED_PROXY_CIDRS=10.0.0.0/8,…`
+  schränkt jetzt ein, von welchen Source-IPs aus `X-Authentik-*` überhaupt
+  honoriert wird. Leer = Legacy-Verhalten + Warn-Log beim Start. Tests decken
+  innerhalb/außerhalb CIDR und IPv4-mapped-IPv6 ab.
 
 ## 🟡 Vor v1.0 dazupacken
 

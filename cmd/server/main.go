@@ -170,7 +170,12 @@ func buildRouter(cfg config.Config, deps *handlers.Deps, log *slog.Logger) http.
 		log.Warn("DEV MODE: admin endpoints use fixed dev user", "user", cfg.DevUser)
 		adminMW = auth.DevMiddleware(cfg.DevUser, cfg.DevUser+"@local")
 	} else {
-		adminMW = auth.Middleware(cfg.TrustedProxy)
+		adminMW = auth.Middleware(cfg.TrustedProxy, cfg.TrustedProxyCIDRs)
+		if len(cfg.TrustedProxyCIDRs) > 0 {
+			log.Info("forward-auth restricted to trusted CIDRs", "cidrs", cfg.TrustedProxyCIDRs)
+		} else if cfg.TrustedProxy {
+			log.Warn("forward-auth trusts ALL source IPs — set GOGRAB_TRUSTED_PROXY_CIDRS to harden")
+		}
 	}
 	admin := chain(adminMW)
 

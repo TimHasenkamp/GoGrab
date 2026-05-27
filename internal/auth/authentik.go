@@ -14,7 +14,10 @@ package auth
 
 import (
 	"context"
+	"net"
 	"net/http"
+	"net/netip"
+	"strings"
 )
 
 type ctxKey struct{}
@@ -33,11 +36,21 @@ const (
 // Middleware returns an http middleware that requires an Authentik-authenticated
 // user. When trustedProxy is true, the X-Authentik-* headers are read; otherwise
 // the middleware fails closed (HTTP 401) — preventing accidental exposure.
-func Middleware(trustedProxy bool) func(http.Handler) http.Handler {
+//
+// If trustedCIDRs is non-empty, the request's RemoteAddr must fall within one
+// of those networks before headers are honored. This is the recommended
+// production posture: only trust headers from your known reverse-proxy IP.
+// If trustedCIDRs is empty, the middleware trusts every connection (legacy
+// behavior; relies on Docker network isolation alone).
+func Middleware(trustedProxy bool, trustedCIDRs []netip.Prefix) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !trustedProxy {
 				http.Error(w, `{"error":"unauthorized","message":"forward-auth disabled"}`, http.StatusUnauthorized)
+				return
+			}
+			if len(trustedCIDRs) > 0 && !remoteInCIDRs(r, trustedCIDRs) {
+				http.Error(w, `{"error":"unauthorized","message":"request did not arrive via a trusted proxy"}`, http.StatusUnauthorized)
 				return
 			}
 			username := r.Header.Get(headerUsername)
@@ -50,6 +63,27 @@ func Middleware(trustedProxy bool) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// remoteInCIDRs returns true if r.RemoteAddr (port stripped) parses as an IP
+// inside any of the given prefixes.
+func remoteInCIDRs(r *http.Request, prefixes []netip.Prefix) bool {
+	host := r.RemoteAddr
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]") // ipv6 brackets
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return false
+	}
+	addr = addr.Unmap() // normalise 4-in-6
+	for _, p := range prefixes {
+		if p.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 // FromContext extracts the User placed by Middleware. Returns ok=false if

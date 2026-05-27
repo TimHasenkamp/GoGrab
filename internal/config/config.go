@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -73,6 +74,7 @@ type Config struct {
 	PublicBaseURL        string
 	LogLevel             string
 	TrustedProxy         bool
+	TrustedProxyCIDRs    []netip.Prefix // if non-empty, X-Authentik-* only honored when RemoteAddr matches
 	DatabaseURL          string
 	DefaultTTL           time.Duration
 	MaxCiphertextBytes   int
@@ -105,6 +107,19 @@ func Load() (Config, error) {
 	}
 	if c.MigrateOnBoot, err = envBool("GOGRAB_MIGRATE_ON_BOOT", false); err != nil {
 		return c, err
+	}
+	if raw := os.Getenv("GOGRAB_TRUSTED_PROXY_CIDRS"); raw != "" {
+		for _, cidr := range strings.Split(raw, ",") {
+			cidr = strings.TrimSpace(cidr)
+			if cidr == "" {
+				continue
+			}
+			p, err := netip.ParsePrefix(cidr)
+			if err != nil {
+				return c, fmt.Errorf("GOGRAB_TRUSTED_PROXY_CIDRS: %q is not a valid CIDR: %w", cidr, err)
+			}
+			c.TrustedProxyCIDRs = append(c.TrustedProxyCIDRs, p)
+		}
 	}
 	hours, err := envInt("GOGRAB_DEFAULT_TTL_HOURS", 72)
 	if err != nil {
