@@ -1,7 +1,11 @@
-# GoGrab production compose. Traefik (with Authentik forward-auth middleware
-# named "authentik@docker") is expected on the external "proxy" network.
-# Cloudflare DNS-challenge wildcard cert is assumed to be issued by the
-# "cloudflare" certresolver.
+# GoGrab production compose. Designed to work out-of-the-box behind any
+# Traefik that has a certresolver named via TRAEFIK_CERTRESOLVER (default
+# "letsencrypt") and an external "proxy" network.
+#
+# Forward-auth middleware (Authentik, Authelia, oauth2-proxy, …) is
+# OPTIONAL: set TRAEFIK_AUTH_MIDDLEWARE to its name to gate /admin/* with
+# it. Leave it empty to run /admin/* unauthenticated — only safe if you
+# also set GOGRAB_DEV_USER (or wire some other auth in front).
 
 services:
   app:
@@ -40,14 +44,16 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
 
-      # Router 1: admin surface — protected by the configured forward-auth
-      # middleware (defaults to authentik@docker; override via env).
+      # Router 1: admin surface — gated by the forward-auth middleware named
+      # in TRAEFIK_AUTH_MIDDLEWARE (e.g. "authentik@docker"). When the env
+      # is empty the middlewares label evaluates to nothing and Traefik
+      # applies no middleware → /admin/* is open. Combine with
+      # GOGRAB_DEV_USER (or roll your own auth) if that's the chosen mode.
       - "traefik.http.routers.gograb-admin.rule=Host(`${GOGRAB_HOST:?GOGRAB_HOST required}`) && (PathPrefix(`/admin`) || PathPrefix(`/api/admin`))"
       - "traefik.http.routers.gograb-admin.entrypoints=websecure"
       - "traefik.http.routers.gograb-admin.tls=true"
       - "traefik.http.routers.gograb-admin.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
-      - "traefik.http.routers.gograb-admin.tls.domains[0].main=${GOGRAB_HOST}"
-      - "traefik.http.routers.gograb-admin.middlewares=${TRAEFIK_AUTH_MIDDLEWARE:-authentik@docker}"
+      - "traefik.http.routers.gograb-admin.middlewares=${TRAEFIK_AUTH_MIDDLEWARE:-}"
       - "traefik.http.routers.gograb-admin.service=gograb"
 
       # Router 2: public surface — no auth, hits /r/* and /api/requests/*
@@ -55,7 +61,6 @@ services:
       - "traefik.http.routers.gograb-public.entrypoints=websecure"
       - "traefik.http.routers.gograb-public.tls=true"
       - "traefik.http.routers.gograb-public.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
-      - "traefik.http.routers.gograb-public.tls.domains[0].main=${GOGRAB_HOST}"
       - "traefik.http.routers.gograb-public.priority=10"
       - "traefik.http.routers.gograb-public.service=gograb"
 

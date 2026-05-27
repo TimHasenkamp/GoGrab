@@ -65,9 +65,20 @@ GOGRAB_HOST=gograb.example.com            # the public hostname
 POSTGRES_PASSWORD=<openssl rand -base64 32>
 GOGRAB_SESSION_SECRET=<head -c 32 /dev/urandom | basenc --base64url | tr -d '='>
 
-# --- Traefik integration (defaults usually fine) ---
+# --- Traefik integration ---
 TRAEFIK_CERTRESOLVER=letsencrypt          # name of your traefik cert resolver
-TRAEFIK_AUTH_MIDDLEWARE=authentik@docker  # forward-auth middleware to gate /admin/*
+
+# --- Auth gate on /admin/* (PICK ONE) ---
+
+# (a) Forward-auth via an existing middleware (Authentik, Authelia, …)
+TRAEFIK_AUTH_MIDDLEWARE=authentik@docker
+
+# (b) No forward-auth — use the built-in dev shim instead.
+#     Set the username GoGrab pretends every admin request is from.
+#     WARNING: anyone reaching /admin is treated as that user. Only safe
+#     when the host is locked down at the network level.
+# TRAEFIK_AUTH_MIDDLEWARE=
+# GOGRAB_DEV_USER=tim
 
 # --- Branding (optional) ---
 GOGRAB_BRAND_NAME=GoGrab
@@ -88,6 +99,26 @@ chmod 600 .env
 derives `GOGRAB_PUBLIC_BASE_URL`, `GOGRAB_RP_ID`, `GOGRAB_RP_ORIGINS` and
 the Traefik rules from it. Required env vars (compose refuses to start
 without them): `GOGRAB_HOST`, `POSTGRES_PASSWORD`, `GOGRAB_SESSION_SECRET`.
+
+### Auth modes
+
+The compose file is auth-agnostic. Two supported modes:
+
+| Mode | Setup | Use when |
+|---|---|---|
+| **Forward-auth (recommended)** | `TRAEFIK_AUTH_MIDDLEWARE=authentik@docker` or any other Traefik middleware that injects `X-Authentik-Username`. | You already run Authentik / Authelia / oauth2-proxy / similar. |
+| **Dev shim** | `TRAEFIK_AUTH_MIDDLEWARE=` (empty) **+** `GOGRAB_DEV_USER=youruser` | Single-user self-host where you fully trust the network. Skip Authentik entirely. |
+
+`TRAEFIK_AUTH_MIDDLEWARE` empty means no Traefik middleware is wired
+between the public internet and `/admin/*`. **You must combine it with
+`GOGRAB_DEV_USER`** (Go server treats every request as that fixed
+user) or expect every `/admin` hit to 401, because the auth middleware
+in the binary refuses to honor missing `X-Authentik-Username` headers.
+
+For setting up the Authentik side (Provider, Application, Outpost), see
+[the Authentik docs](https://docs.goauthentik.io/docs/providers/proxy/)
+— what you need is a Proxy Provider in "Forward Auth (single application)"
+mode pointing at `https://${GOGRAB_HOST}`.
 
 ### 3. GHCR pull access
 
