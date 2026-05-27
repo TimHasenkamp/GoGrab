@@ -39,6 +39,22 @@ class Session {
   masterKek = $state<CryptoKey | null>(null);
   unlockingCredentialIdB64 = $state<string | null>(null);
 
+  /** Share URLs of recently-created requests, keyed by request id. Lives
+   * only in JS memory — once the tab closes the URLs are gone. Lets the
+   * detail page offer "show share URL again" while the operator hasn't
+   * navigated away since creating the request. */
+  recentShareUrls = $state<Record<string, string>>({});
+
+  rememberShareUrl(requestId: string, url: string) {
+    this.recentShareUrls = { ...this.recentShareUrls, [requestId]: url };
+  }
+
+  forgetShareUrl(requestId: string) {
+    const next = { ...this.recentShareUrls };
+    delete next[requestId];
+    this.recentShareUrls = next;
+  }
+
   get isUnlocked(): boolean {
     return this.masterKek !== null;
   }

@@ -102,6 +102,9 @@
       });
       requestId = res.request_id;
       shareUrl = `${location.origin}/r/${res.token}#${keyB64}`;
+      // Keep around so /admin/[id] can offer "show share URL again" while
+      // this tab stays open.
+      session.rememberShareUrl(requestId, shareUrl);
     } catch (e) {
       error = (e as Error).message || (e as ApiError).message || 'Konnte Request nicht anlegen';
     } finally {
@@ -114,6 +117,15 @@
     await navigator.clipboard.writeText(shareUrl);
     copied = true;
     setTimeout(() => (copied = false), 1500);
+  }
+
+  function mailtoHref(): string {
+    if (!shareUrl) return '#';
+    const subject = encodeURIComponent('Sichere Übermittlung — ' + description.trim());
+    const body = encodeURIComponent(
+      `Hallo,\n\nbitte hinterlege das gewünschte Geheimnis sicher über diesen einmaligen Link:\n\n${shareUrl}\n\nDer Inhalt wird in deinem Browser verschlüsselt — ich (und niemand sonst auf dem Server) kann ihn erst nach deiner Einreichung einsehen.\n\nViele Grüße`
+    );
+    return `mailto:?subject=${subject}&body=${body}`;
   }
 </script>
 
@@ -193,10 +205,20 @@
           </p>
         </div>
 
-        <div class="flex gap-2 pt-2">
+        <div class="flex flex-wrap gap-2 pt-2">
+          <a
+            href={mailtoHref()}
+            class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+            Per Mail senden
+          </a>
           <a
             href="/admin/{requestId}"
-            class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+            class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Zum Request
           </a>

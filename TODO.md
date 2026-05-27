@@ -22,10 +22,10 @@ sind die, die ich vor v1.0-tag erledigt hätte.
 
 ## 🟡 Vor v1.0 dazupacken
 
-- [ ] **#4 Resend-Link.** Im Pending-Zustand auf der Detail-Seite einen Button
-  „Share-URL nochmal anzeigen". Aktuell muss man cancelen + neu anlegen wenn
-  der Kunde den Link verbummelt hat. (Setzt voraus dass der Operator beim
-  Anlegen die Share-URL temporär in der Session behält — keine Persistenz.)
+- [x] **#4 Resend-Link.** `session.recentShareUrls` hält die Share-URL für den
+  aktuellen Tab vor. Detail-Seite zeigt im Pending-Zustand einen
+  „Share-URL nochmal anzeigen"-Button, mit Kopieren + Mailto. Beim
+  Tab-Schließen weg (kein localStorage = kein Leak).
 - [ ] **#5 Branding der `/r/[token]`-Seite.** Operator-konfigurierbarer
   Anbieter-Name + optional Logo per Env oder pro-Operator-Setting. Aktuell
   sieht der Kunde „GoGrab", was er nicht kennt.
@@ -45,8 +45,9 @@ sind die, die ich vor v1.0-tag erledigt hätte.
   _Operator-Name_." Trust-Building, eine kleine Confirm-Modal.
 - [ ] **#10 i18n.** Aktuell deutsch-only auf der Customer-Seite. Sprachschalter
   (`de` / `en`) oder Auto-Detection via `Accept-Language`.
-- [ ] **#11 Mailto-Quick-Action.** Auf dem Share-URL-Screen ein Button „Per
-  Mail senden" der `mailto:?subject=...&body=...` öffnet. Spart Copy-Paste.
+- [x] **#11 Mailto-Quick-Action.** „Per Mail senden"-Button auf der
+  Erfolgsseite und im Resend-Block — öffnet `mailto:` mit vorbefülltem
+  Subject + Body inkl. Share-URL.
 - [ ] **#12 Docs.** SECURITY.md hat einen Threat-Model-Absatz, kein
   Operator-Runbook („was tun wenn YubiKey weg / Authentik kaputt /
   DB-Migration in Prod"). Plus README pro Migrations-Datei mit Up/Down.

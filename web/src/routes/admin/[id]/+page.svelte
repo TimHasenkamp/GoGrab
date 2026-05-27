@@ -26,6 +26,26 @@
   let decrypting = $state(false);
   let decryptError = $state<string | null>(null);
 
+  let shareUrlVisible = $state(false);
+  let shareUrlCopied = $state(false);
+  const cachedShareUrl = $derived(session.recentShareUrls[id] ?? null);
+
+  async function copyShareUrl() {
+    if (!cachedShareUrl) return;
+    await navigator.clipboard.writeText(cachedShareUrl);
+    shareUrlCopied = true;
+    setTimeout(() => (shareUrlCopied = false), 1500);
+  }
+
+  function mailtoShare(): string {
+    if (!cachedShareUrl || !request) return '#';
+    const subject = encodeURIComponent('Sichere Übermittlung — ' + request.description);
+    const body = encodeURIComponent(
+      `Hallo,\n\nbitte hinterlege das gewünschte Geheimnis sicher über diesen einmaligen Link:\n\n${cachedShareUrl}\n\nDer Inhalt wird in deinem Browser verschlüsselt.\n\nViele Grüße`
+    );
+    return `mailto:?subject=${subject}&body=${body}`;
+  }
+
   async function load() {
     loading = true;
     error = null;
@@ -210,6 +230,60 @@
             <p class="mt-1 text-slate-600">
               Sobald der Kunde einreicht, kannst du das Geheimnis hier mit einem Klick abrufen.
             </p>
+
+            {#if cachedShareUrl}
+              <div class="mt-3">
+                {#if !shareUrlVisible}
+                  <button
+                    type="button"
+                    onclick={() => (shareUrlVisible = true)}
+                    class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                    Share-URL nochmal anzeigen
+                  </button>
+                {:else}
+                  <div class="space-y-2">
+                    <textarea
+                      readonly
+                      rows="3"
+                      class="w-full break-all rounded-md border border-slate-300 bg-white p-2 font-mono text-xs text-slate-900"
+                      >{cachedShareUrl}</textarea
+                    >
+                    <div class="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onclick={copyShareUrl}
+                        class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+                      >
+                        {shareUrlCopied ? '✓ Kopiert' : 'Kopieren'}
+                      </button>
+                      <a
+                        href={mailtoShare()}
+                        class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Per Mail senden
+                      </a>
+                      <button
+                        type="button"
+                        onclick={() => (shareUrlVisible = false)}
+                        class="rounded-md px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                      >
+                        Verbergen
+                      </button>
+                    </div>
+                    <p class="text-[11px] text-slate-500">
+                      Hinweis: dieser Link existiert nur im Speicher dieses Tabs. Wenn du das Tab
+                      schließt, ist er weg — dann musst du den Request canceln und neu anlegen.
+                    </p>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+
             <button
               type="button"
               onclick={cancel}
