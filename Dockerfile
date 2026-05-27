@@ -17,6 +17,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
+COPY migrations ./migrations
 COPY web/web.go ./web/web.go
 # Pull in the freshly built frontend so go:embed picks it up.
 COPY --from=web-builder /web/build ./web/build
