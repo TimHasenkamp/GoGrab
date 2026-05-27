@@ -6,6 +6,8 @@
   import { authApi, type ApiError } from '$lib/api';
   import { session } from '$lib/session.svelte';
   import { authenticate } from '$lib/webauthn';
+  import Toaster from '$lib/Toaster.svelte';
+  import ConfirmDialog from '$lib/ConfirmDialog.svelte';
 
   let { children } = $props();
 
@@ -169,4 +171,7 @@
       </div>
     {/if}
   </main>
+
+  <Toaster />
+  <ConfirmDialog />
 </div>

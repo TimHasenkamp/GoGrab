@@ -5,6 +5,8 @@
   import { decrypt } from '$lib/crypto';
   import { session } from '$lib/session.svelte';
   import { defaultSchema, type FormField } from '$lib/forms';
+  import { toast } from '$lib/toast.svelte';
+  import { confirmStore } from '$lib/confirm.svelte';
   import {
     relativeTime,
     absoluteTime,
@@ -123,12 +125,19 @@
   }
 
   async function cancel() {
-    if (!confirm('Diesen Request endgültig löschen?')) return;
+    const ok = await confirmStore.ask({
+      title: 'Request löschen?',
+      body: 'Der Link wird ungültig und der Kunde kann nichts mehr einreichen. Diese Aktion lässt sich nicht rückgängig machen.',
+      confirmLabel: 'Endgültig löschen',
+      destructive: true
+    });
+    if (!ok) return;
     try {
       await adminApi.remove(id);
+      toast.success('Request gelöscht.');
       history.back();
     } catch (e) {
-      error = (e as ApiError).message || 'Konnte nicht löschen';
+      toast.error((e as ApiError).message || 'Konnte nicht löschen');
     }
   }
 

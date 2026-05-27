@@ -4,6 +4,8 @@
   import { session } from '$lib/session.svelte';
   import { register, b64urlToBytes } from '$lib/webauthn';
   import { relativeTime, absoluteTime } from '$lib/format';
+  import { toast } from '$lib/toast.svelte';
+  import { confirmStore } from '$lib/confirm.svelte';
 
   let credentials = $state<CredentialSummary[]>([]);
   let loading = $state(true);
@@ -63,15 +65,22 @@
 
   async function revoke(c: CredentialSummary) {
     if (credentials.length <= 1) {
-      alert('Du kannst den letzten Key nicht löschen — registriere zuerst einen Backup-Key.');
+      toast.warning('Du kannst den letzten Key nicht löschen — registriere zuerst einen Backup-Key.');
       return;
     }
-    if (!confirm(`Key „${c.label}" wirklich entfernen? Dieser Key kann danach keine Sessions mehr entsperren.`)) return;
+    const ok = await confirmStore.ask({
+      title: 'Key entfernen?',
+      body: `„${c.label}" kann danach keine Sessions mehr entsperren. Stelle sicher, dass du einen anderen Authenticator zur Hand hast.`,
+      confirmLabel: 'Entfernen',
+      destructive: true
+    });
+    if (!ok) return;
     try {
       await authApi.deleteCredential(c.id);
+      toast.success(`„${c.label}" entfernt.`);
       await refresh();
     } catch (e) {
-      alert('Löschen fehlgeschlagen: ' + ((e as ApiError).message || ''));
+      toast.error('Löschen fehlgeschlagen: ' + ((e as ApiError).message || ''));
     }
   }
 
