@@ -6,11 +6,14 @@
 // The PRF output is the secret material used to derive the wrap key for the
 // operator's master KEK. The server never sees PRF outputs.
 
-export function b64urlToBytes(b64: string): Uint8Array {
+// Return type pinned to Uint8Array<ArrayBuffer> (not the default
+// Uint8Array<ArrayBufferLike> in TS ≥ 5.7) so the bytes are accepted directly
+// by WebCrypto APIs that require a concrete ArrayBuffer-backed view.
+export function b64urlToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const pad = b64.length % 4 === 0 ? 0 : 4 - (b64.length % 4);
   const norm = b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(pad);
   const bin = atob(norm);
-  const out = new Uint8Array(bin.length);
+  const out = new Uint8Array(new ArrayBuffer(bin.length));
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
@@ -99,11 +102,11 @@ function encodeAssertion(cred: PublicKeyCredential): unknown {
 }
 
 export interface CeremonyResult {
-  response: unknown;          // JSON ready to POST to /finish
-  prfOutput: Uint8Array;      // 32-byte PRF eval output
+  response: unknown;                  // JSON ready to POST to /finish
+  prfOutput: Uint8Array<ArrayBuffer>; // 32-byte PRF eval output
 }
 
-function extractPRFOutput(cred: PublicKeyCredential): Uint8Array {
+function extractPRFOutput(cred: PublicKeyCredential): Uint8Array<ArrayBuffer> {
   const ext = cred.getClientExtensionResults() as Record<string, unknown>;
   const prf = (ext.prf ?? {}) as { results?: { first?: ArrayBuffer } };
   const first = prf.results?.first;
@@ -112,13 +115,14 @@ function extractPRFOutput(cred: PublicKeyCredential): Uint8Array {
       'Dein Authenticator unterstützt die PRF-Extension nicht. Stelle sicher, dass dein YubiKey die Firmware 5.7+ hat (oder nutze einen anderen kompatiblen Authenticator).'
     );
   }
-  return new Uint8Array(first);
+  // first is ArrayBuffer (not SharedArrayBuffer) per the WebAuthn spec.
+  return new Uint8Array(first) as Uint8Array<ArrayBuffer>;
 }
 
 /** Drive a registration ceremony. Adds `prf` extension with `salt` as the
  * eval input. Returns the JSON response for the server + the PRF output for
  * deriving the wrap key client-side. */
-export async function register(salt: Uint8Array, optionsJSON: unknown): Promise<CeremonyResult> {
+export async function register(salt: Uint8Array<ArrayBuffer>, optionsJSON: unknown): Promise<CeremonyResult> {
   const opts = decodeCreationOptions(optionsJSON);
   // Merge in the PRF extension; the server doesn't dictate this since it
   // doesn't need to know the salt (it just sends it as a hint).
@@ -133,7 +137,7 @@ export async function register(salt: Uint8Array, optionsJSON: unknown): Promise<
 }
 
 /** Drive an authentication ceremony with PRF extension. */
-export async function authenticate(salt: Uint8Array, optionsJSON: unknown): Promise<CeremonyResult> {
+export async function authenticate(salt: Uint8Array<ArrayBuffer>, optionsJSON: unknown): Promise<CeremonyResult> {
   const opts = decodeAssertionOptions(optionsJSON);
   opts.extensions = {
     ...(opts.extensions ?? {}),

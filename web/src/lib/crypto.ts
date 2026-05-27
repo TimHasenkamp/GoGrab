@@ -10,11 +10,14 @@ function b64urlEncode(bytes: Uint8Array): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function b64urlDecode(s: string): Uint8Array {
+// Backed by an explicit ArrayBuffer so the result satisfies WebCrypto's
+// BufferSource type (TS 5.7+ makes plain Uint8Array generic over
+// ArrayBufferLike, which doesn't include the concrete ArrayBuffer required).
+function b64urlDecode(s: string): Uint8Array<ArrayBuffer> {
   const pad = s.length % 4 === 0 ? 0 : 4 - (s.length % 4);
   const norm = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(pad);
   const bin = atob(norm);
-  const out = new Uint8Array(bin.length);
+  const out = new Uint8Array(new ArrayBuffer(bin.length));
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }

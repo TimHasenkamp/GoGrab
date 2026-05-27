@@ -8,7 +8,7 @@
 import { b64urlToBytes, bytesToB64url } from './webauthn';
 
 // AES-256-GCM wrap key derived from a WebAuthn PRF output (32 bytes).
-async function deriveWrapKey(prfOutput: Uint8Array): Promise<CryptoKey> {
+async function deriveWrapKey(prfOutput: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   // PRF outputs are uniformly random secret material. Per RFC 5869 we could
   // run HKDF, but the input is already 256 bits of secret entropy from a
   // CSPRNG path inside the authenticator, so we can import directly.
@@ -59,13 +59,13 @@ class Session {
     return this.masterKek !== null;
   }
 
-  get prfSalt(): Uint8Array | null {
+  get prfSalt(): Uint8Array<ArrayBuffer> | null {
     return this.prfSaltB64 ? b64urlToBytes(this.prfSaltB64) : null;
   }
 
   /** Called after WebAuthn registration: derive wrap key from PRF, generate
    * a fresh Master-KEK, return the wrapped master + IV for the server. */
-  async createMasterAndWrap(prfOutput: Uint8Array): Promise<{
+  async createMasterAndWrap(prfOutput: Uint8Array<ArrayBuffer>): Promise<{
     wrappedMasterB64: string;
     wrapIvB64: string;
   }> {
@@ -95,7 +95,7 @@ class Session {
 
   /** Called when registering a BACKUP credential while already unlocked: wrap
    * the existing in-memory master KEK with the new credential's PRF output. */
-  async wrapExistingMaster(prfOutput: Uint8Array): Promise<{
+  async wrapExistingMaster(prfOutput: Uint8Array<ArrayBuffer>): Promise<{
     wrappedMasterB64: string;
     wrapIvB64: string;
   }> {
@@ -123,7 +123,7 @@ class Session {
   /** Called after WebAuthn login: derive wrap key, unwrap server-returned
    * wrapped master, store master in memory as non-extractable AES-GCM key. */
   async unlock(
-    prfOutput: Uint8Array,
+    prfOutput: Uint8Array<ArrayBuffer>,
     wrappedMasterB64: string,
     wrapIvB64: string,
     credentialIdB64: string

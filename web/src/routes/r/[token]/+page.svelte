@@ -565,8 +565,6 @@
     font-size: 0.8125rem;
     line-height: 1.4;
   }
-  .save-warn strong { color: #78350f; }
-
   .confirm {
     display: flex;
     align-items: center;

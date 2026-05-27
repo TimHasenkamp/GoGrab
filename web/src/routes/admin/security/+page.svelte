@@ -75,13 +75,6 @@
     }
   }
 
-  const isCurrentSessionKey = $derived.by(() => {
-    return (c: CredentialSummary) =>
-      session.unlockingCredentialIdB64 !== null &&
-      c.id.length > 0 &&
-      false; // we only have the credential_id (raw), not the db id from session — skip the marker for now
-  });
-  void isCurrentSessionKey; // suppress unused
 </script>
 
 <svelte:head><title>GoGrab — Security</title></svelte:head>
