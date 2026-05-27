@@ -60,28 +60,34 @@ curl -L https://raw.githubusercontent.com/TimHasenkamp/GoGrab/main/docker-compos
 
 # Create .env with real values
 cat > .env <<'EOF'
-POSTGRES_USER=gograb
-POSTGRES_PASSWORD=<generate-with-openssl-rand>
-POSTGRES_DB=gograb
+# --- Required ---
+GOGRAB_HOST=gograb.example.com            # the public hostname
+POSTGRES_PASSWORD=<openssl rand -base64 32>
+GOGRAB_SESSION_SECRET=<head -c 32 /dev/urandom | basenc --base64url | tr -d '='>
 
-GOGRAB_PUBLIC_BASE_URL=https://gograb.example.com
-GOGRAB_RP_ID=gograb.example.com
-GOGRAB_RP_ORIGINS=https://gograb.example.com
-GOGRAB_SESSION_SECRET=<head -c 32 /dev/urandom | basenc --base64url | tr -d '=' >
-GOGRAB_TRUSTED_PROXY_CIDRS=172.16.0.0/12,127.0.0.0/8
+# --- Traefik integration (defaults usually fine) ---
+TRAEFIK_CERTRESOLVER=letsencrypt          # name of your traefik cert resolver
+TRAEFIK_AUTH_MIDDLEWARE=authentik@docker  # forward-auth middleware to gate /admin/*
 
+# --- Branding (optional) ---
 GOGRAB_BRAND_NAME=GoGrab
 GOGRAB_BRAND_LOGO_URL=
 GOGRAB_BRAND_COLOR=
 
+# --- Notifications (optional) ---
 GOGRAB_NOTIFY_WEBHOOK_URL=
+
+# --- Postgres ---
+POSTGRES_USER=gograb
+POSTGRES_DB=gograb
 EOF
 chmod 600 .env
 ```
 
-Required env vars (compose will refuse to start without them):
-`POSTGRES_PASSWORD`, `GOGRAB_RP_ID`, `GOGRAB_RP_ORIGINS`,
-`GOGRAB_SESSION_SECRET`.
+`GOGRAB_HOST` is the single source of truth for the hostname — compose
+derives `GOGRAB_PUBLIC_BASE_URL`, `GOGRAB_RP_ID`, `GOGRAB_RP_ORIGINS` and
+the Traefik rules from it. Required env vars (compose refuses to start
+without them): `GOGRAB_HOST`, `POSTGRES_PASSWORD`, `GOGRAB_SESSION_SECRET`.
 
 ### 3. GHCR pull access
 
