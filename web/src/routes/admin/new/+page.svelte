@@ -15,8 +15,14 @@
 
   let description = $state('');
   let expiresInHours = $state(72);
+  let customForm = $state(false);
   let fields = $state<FormField[]>(defaultSchema());
   let submitting = $state(false);
+
+  // Schema that's actually sent to the server: the user's custom fields when
+  // the builder is toggled on, otherwise the single-textarea default. We
+  // never let an empty schema reach the API.
+  const schemaToSend = $derived<FormField[]>(customForm ? fields : defaultSchema());
   let error = $state<string | null>(null);
   let shareUrl = $state<string | null>(null);
   let requestId = $state<string | null>(null);
@@ -51,31 +57,16 @@
     fields = next;
   }
 
-  function updateLabel(idx: number, label: string) {
-    const next = fields.slice();
-    const f = next[idx];
+  // Derive a stable, unique id from the final label — only on blur. Doing
+  // this on every keystroke would change the {#each} key when keyed by id
+  // and remount the input. The id is invisible to the operator anyway, it's
+  // only used as a JSON object key in the encrypted payload.
+  function commitLabel(idx: number) {
+    const f = fields[idx];
     if (!f) return;
-    next[idx] = { ...f, label };
-    // re-derive id only when the user didn't touch the id and the label is being typed
-    const otherIds = new Set(next.filter((_, i) => i !== idx).map((x) => x.id));
-    next[idx] = { ...next[idx]!, id: deriveFieldId(label, otherIds) };
-    fields = next;
-  }
-
-  function updateType(idx: number, type: FieldType) {
-    const next = fields.slice();
-    const f = next[idx];
-    if (!f) return;
-    next[idx] = { ...f, type };
-    fields = next;
-  }
-
-  function updatePlaceholder(idx: number, placeholder: string) {
-    const next = fields.slice();
-    const f = next[idx];
-    if (!f) return;
-    next[idx] = { ...f, placeholder };
-    fields = next;
+    const otherIds = new Set(fields.filter((_, i) => i !== idx).map((x) => x.id));
+    const newId = deriveFieldId(f.label, otherIds);
+    if (newId !== f.id) f.id = newId;
   }
 
   const expiryPresets = [
@@ -107,7 +98,7 @@
         expires_in_hours: expiresInHours,
         wrapped_key_b64: wrappedKeyB64,
         wrap_iv_b64: wrapIvB64,
-        form_schema: fields
+        form_schema: schemaToSend
       });
       requestId = res.request_id;
       shareUrl = `${location.origin}/r/${res.token}#${keyB64}`;
@@ -275,18 +266,40 @@
           </div>
         </div>
 
-        <!-- Form builder -->
+        <!-- Form builder (collapsed by default) -->
         <div>
-          <div class="mb-2 flex items-center justify-between">
-            <span class="text-sm font-medium text-slate-700">Formular</span>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <span class="text-sm font-medium text-slate-700">Formular</span>
+              <p class="mt-0.5 text-xs text-slate-500">
+                {#if customForm}
+                  Du baust eigene Felder. Bei Passwort-Feldern bekommt der Kunde einen Generator.
+                {:else}
+                  Ein mehrzeiliges Textfeld — der Kunde gibt einen freien Text ein.
+                {/if}
+              </p>
+            </div>
+            <label
+              class="flex shrink-0 cursor-pointer items-center gap-2"
+              title={customForm ? 'Zurück zu Standard-Textfeld' : 'Eigenes Formular bauen'}
+            >
+              <span class="text-xs font-medium text-slate-600">{customForm ? 'an' : 'aus'}</span>
+              <span class="relative inline-block h-5 w-9">
+                <input type="checkbox" bind:checked={customForm} class="peer sr-only" />
+                <span class="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-slate-900"></span>
+                <span class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4"></span>
+              </span>
+            </label>
+          </div>
+
+          {#if customForm}
+          <div class="mt-3">
+          <div class="mb-2 flex items-center justify-end">
             <span class="text-xs text-slate-500">{fields.length} / {MAX_FIELDS} Felder</span>
           </div>
-          <p class="mb-3 text-xs text-slate-500">
-            Bau zusammen, was der Kunde ausfüllen soll. Bei Passwort-Feldern bekommt er einen Generator angeboten.
-          </p>
 
           <ul class="space-y-2">
-            {#each fields as f, idx (f.id + '-' + idx)}
+            {#each fields as f, idx (idx)}
               <li class="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <div class="flex items-start gap-2">
                   <div class="flex flex-col gap-0.5">
@@ -321,8 +334,8 @@
                         id="label-{idx}"
                         required
                         maxlength={MAX_LABEL}
-                        value={f.label}
-                        oninput={(e) => updateLabel(idx, (e.currentTarget as HTMLInputElement).value)}
+                        bind:value={fields[idx]!.label}
+                        onblur={() => commitLabel(idx)}
                         class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                         placeholder="z.B. WLAN-Passwort"
                       />
@@ -333,8 +346,7 @@
                       </label>
                       <select
                         id="type-{idx}"
-                        value={f.type}
-                        onchange={(e) => updateType(idx, (e.currentTarget as HTMLSelectElement).value as FieldType)}
+                        bind:value={fields[idx]!.type}
                         class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                       >
                         <option value="text">{fieldTypeLabel.text}</option>
@@ -349,8 +361,7 @@
                       <input
                         id="ph-{idx}"
                         maxlength={MAX_PLACEHOLDER}
-                        value={f.placeholder ?? ''}
-                        oninput={(e) => updatePlaceholder(idx, (e.currentTarget as HTMLInputElement).value)}
+                        bind:value={fields[idx]!.placeholder}
                         class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
                         placeholder="z.B. FritzBox-Standard…"
                       />
@@ -400,6 +411,8 @@
               + Mehrzeilig
             </button>
           </div>
+          </div>
+          {/if}
         </div>
 
         {#if error}

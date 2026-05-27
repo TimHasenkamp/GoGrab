@@ -59,6 +59,12 @@ func FromContext(ctx context.Context) (User, bool) {
 	return u, ok
 }
 
+// WithUser returns ctx with u attached. Exposed for tests; production code
+// should reach a handler via Middleware / DevMiddleware instead.
+func WithUser(ctx context.Context, u User) context.Context {
+	return context.WithValue(ctx, ctxKey{}, u)
+}
+
 // DevMiddleware injects a fixed user for local development without Authentik.
 // Never use in production.
 func DevMiddleware(username, email string) func(http.Handler) http.Handler {

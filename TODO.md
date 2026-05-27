@@ -5,12 +5,13 @@ sind die, die ich vor v1.0-tag erledigt hätte.
 
 ## 🔴 Blocker für ernsthaften Einsatz
 
-- [ ] **#1 Tests.** Außer `token` + `auth` ist die Coverage minimal. Mindestens:
-  - `internal/handlers`: Request-Lifecycle (create → submit → retrieve → purge),
-    Form-Schema-Validation, Auth-Fail-Paths
-  - `internal/webauthn`: Session-Token Pack/Unpack-Roundtrip mit gemockten Secrets
-  - `internal/audit`: nicht-blockierender Insert-Pfad
-  - Mindestens ein E2E-Smoke-Test des Submit→Retrieve-Roundtrips
+- [x] **#1 Tests.** Coverage erweitert um:
+  - `internal/handlers`: Form-Schema-Validation, Submit→Retrieve-Roundtrip,
+    Foreign-Operator-404, Bad-Input-Pfade, 404-Backoff State-Machine + Middleware
+  - `internal/webauthn`: Session-Token Pack/Unpack-Roundtrip, Tamper-Erkennung,
+    Expiry, Wrong-Secret
+  - `internal/audit`: synchroner Insert-Pfad mit DB-Fehler-Swallow, XFF,
+    UA-Truncation
 - [ ] **#2 Migrate-on-Boot.** `gograb migrate` Subcommand + optional
   `GOGRAB_MIGRATE_ON_BOOT=1` Env-Flag, das beim Start die Migrationen anwendet.
   Sonst wird das Update 3 Releases später vergessen.

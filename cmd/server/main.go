@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -249,7 +250,10 @@ func clientIP(r *http.Request) string {
 		if comma := strings.Index(v, ","); comma >= 0 {
 			return strings.TrimSpace(v[:comma])
 		}
-		return v
+		return strings.TrimSpace(v)
+	}
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
 	}
 	return r.RemoteAddr
 }

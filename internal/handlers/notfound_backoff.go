@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -87,14 +89,18 @@ func (t *notFoundTracker) register404(ip string) time.Time {
 }
 
 // statusCapture wraps http.ResponseWriter to remember the status code.
+// status defaults to 200 (the implicit code for a body-only response that
+// never calls WriteHeader) and gets overwritten by the first WriteHeader.
 type statusCapture struct {
 	http.ResponseWriter
-	status int
+	status      int
+	wroteHeader bool
 }
 
 func (s *statusCapture) WriteHeader(code int) {
-	if s.status == 0 {
+	if !s.wroteHeader {
 		s.status = code
+		s.wroteHeader = true
 	}
 	s.ResponseWriter.WriteHeader(code)
 }
@@ -118,33 +124,19 @@ func (t *notFoundTracker) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-// clientIP is duplicated here to avoid an import cycle with main.go. Same
-// semantics: prefer the first X-Forwarded-For, fall back to RemoteAddr.
+// clientIP extracts a stable per-client key from the request. Prefers the
+// first hop of X-Forwarded-For (set by Traefik) and falls back to RemoteAddr
+// with its ephemeral port stripped — otherwise every TCP connection would
+// land in a fresh bucket and per-IP limits would be useless.
 func clientIP(r *http.Request) string {
 	if v := r.Header.Get("X-Forwarded-For"); v != "" {
-		if comma := indexByte(v, ','); comma >= 0 {
-			return trimSpace(v[:comma])
+		if comma := strings.Index(v, ","); comma >= 0 {
+			return strings.TrimSpace(v[:comma])
 		}
-		return v
+		return strings.TrimSpace(v)
+	}
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
 	}
 	return r.RemoteAddr
-}
-
-func indexByte(s string, b byte) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == b {
-			return i
-		}
-	}
-	return -1
-}
-
-func trimSpace(s string) string {
-	for len(s) > 0 && (s[0] == ' ' || s[0] == '\t') {
-		s = s[1:]
-	}
-	for len(s) > 0 && (s[len(s)-1] == ' ' || s[len(s)-1] == '\t') {
-		s = s[:len(s)-1]
-	}
-	return s
 }
