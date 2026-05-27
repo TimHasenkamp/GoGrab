@@ -24,6 +24,13 @@ import (
 	"github.com/timhasenkamp/gograb/internal/token"
 )
 
+// Branding is operator-configured copy/logo shown on the public submit page.
+type Branding struct {
+	Name    string `json:"name"`
+	LogoURL string `json:"logo_url,omitempty"`
+	Color   string `json:"color,omitempty"`
+}
+
 // Deps bundles handler dependencies. Constructed once in main.
 type Deps struct {
 	Queries            db.Querier
@@ -32,6 +39,7 @@ type Deps struct {
 	Log                *slog.Logger
 	DefaultTTL         time.Duration
 	MaxCiphertextBytes int
+	Branding           Branding
 
 	// auth is attached by WithAuth once the WebAuthn service is constructed.
 	auth *AuthDeps
@@ -52,7 +60,17 @@ func New(
 		Log:                log,
 		DefaultTTL:         defaultTTL,
 		MaxCiphertextBytes: maxCT,
+		Branding:           Branding{Name: "GoGrab"},
 	}
+}
+
+// WithBranding overrides the default branding. Returns d for chaining.
+func (d *Deps) WithBranding(b Branding) *Deps {
+	if b.Name == "" {
+		b.Name = "GoGrab"
+	}
+	d.Branding = b
+	return d
 }
 
 // --- helpers ---------------------------------------------------------------
@@ -423,6 +441,7 @@ type publicMeta struct {
 	ExpiresAt   string          `json:"expires_at"`
 	Status      string          `json:"status"`
 	FormSchema  json.RawMessage `json:"form_schema"`
+	Branding    Branding        `json:"branding"`
 }
 
 // GET /api/requests/{token}/meta
@@ -447,6 +466,7 @@ func (d *Deps) PublicMeta(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:   row.ExpiresAt.Time.UTC().Format(time.RFC3339),
 		Status:      effectiveStatus(row),
 		FormSchema:  row.FormSchema,
+		Branding:    d.Branding,
 	})
 }
 

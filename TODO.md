@@ -26,9 +26,11 @@ sind die, die ich vor v1.0-tag erledigt hätte.
   aktuellen Tab vor. Detail-Seite zeigt im Pending-Zustand einen
   „Share-URL nochmal anzeigen"-Button, mit Kopieren + Mailto. Beim
   Tab-Schließen weg (kein localStorage = kein Leak).
-- [ ] **#5 Branding der `/r/[token]`-Seite.** Operator-konfigurierbarer
-  Anbieter-Name + optional Logo per Env oder pro-Operator-Setting. Aktuell
-  sieht der Kunde „GoGrab", was er nicht kennt.
+- [x] **#5 Branding der `/r/[token]`-Seite.** `GOGRAB_BRAND_NAME`,
+  `GOGRAB_BRAND_LOGO_URL`, `GOGRAB_BRAND_COLOR` werden über `PublicMeta`
+  durchgereicht und auf der Customer-Seite gerendert (h1 / Logo /
+  Accent-Color für Buttons). Footer zeigt „Sicher übermittelt mit GoGrab
+  für $BRAND_NAME" beim Custom-Branding.
 - [ ] **#6 Pagination + Suche** auf der Requests-Liste. Aktuell hardcoded
   `LIMIT 200`. Nach 6 Monaten regelmäßiger Nutzung wird's eng. Plus
   freitext-Suche im `description`-Feld.

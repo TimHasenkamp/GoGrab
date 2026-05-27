@@ -133,12 +133,17 @@
 </script>
 
 <svelte:head>
-  <title>GoGrab — Geheimnis übermitteln</title>
+  <title>{meta?.branding.name ?? 'GoGrab'} — Geheimnis übermitteln</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 
-<main class="wrap">
-  <h1>GoGrab</h1>
+<main class="wrap" style:--brand-color={meta?.branding.color || '#0f172a'}>
+  <header class="brand">
+    {#if meta?.branding.logo_url}
+      <img src={meta.branding.logo_url} alt="" class="brand-logo" />
+    {/if}
+    <h1>{meta?.branding.name ?? 'GoGrab'}</h1>
+  </header>
 
   {#if loading}
     <p class="muted">Lade …</p>
@@ -312,7 +317,14 @@
     </div>
   {/if}
 
-  <footer>Powered by GoGrab — Ende-zu-Ende verschlüsselte Geheimnis-Übermittlung.</footer>
+  <footer>
+    {#if meta?.branding.name && meta.branding.name !== 'GoGrab'}
+      Sicher übermittelt mit <strong>GoGrab</strong> für {meta.branding.name} —
+      Ende-zu-Ende verschlüsselt.
+    {:else}
+      Powered by GoGrab — Ende-zu-Ende verschlüsselte Geheimnis-Übermittlung.
+    {/if}
+  </footer>
 </main>
 
 <style>
@@ -328,11 +340,23 @@
     margin: 0 auto;
     padding: 2rem 1rem 4rem;
   }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 1.5rem;
+  }
+  .brand-logo {
+    height: 1.75rem;
+    width: auto;
+    max-width: 6rem;
+    object-fit: contain;
+  }
   h1 {
     font-size: 1.25rem;
     font-weight: 600;
-    margin: 0 0 1.5rem;
-    color: #0f172a;
+    margin: 0;
+    color: var(--brand-color, #0f172a);
   }
   .muted { color: #64748b; }
   .card {
@@ -503,7 +527,7 @@
 
   .btn-submit {
     margin-top: 1rem;
-    background: #0f172a;
+    background: var(--brand-color, #0f172a);
     color: #fff;
     border: none;
     padding: 0.65rem 1rem;

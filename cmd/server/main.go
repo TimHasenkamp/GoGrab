@@ -107,6 +107,11 @@ func run() error {
 
 	auditLog := audit.New(queries, log)
 	deps := handlers.New(queries, notifier, auditLog, log, cfg.DefaultTTL, cfg.MaxCiphertextBytes)
+	deps.WithBranding(handlers.Branding{
+		Name:    cfg.BrandName,
+		LogoURL: cfg.BrandLogoURL,
+		Color:   cfg.BrandColor,
+	})
 
 	waSvc, err := gogwebauthn.New(gogwebauthn.Config{
 		RPDisplayName: cfg.RPDisplayName,

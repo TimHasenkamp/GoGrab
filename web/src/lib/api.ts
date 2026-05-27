@@ -66,11 +66,18 @@ export const adminApi = {
 };
 
 // --- Public ---
+export interface Branding {
+  name: string;
+  logo_url?: string;
+  color?: string;
+}
+
 export interface PublicMeta {
   description: string;
   expires_at: string;
   status: 'pending' | 'submitted' | 'retrieved' | 'expired';
   form_schema: import('./forms').FormField[];
+  branding: Branding;
 }
 
 export const publicApi = {

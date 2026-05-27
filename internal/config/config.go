@@ -90,6 +90,12 @@ type Config struct {
 	RPID          string   // e.g. "gograb.example.com" or "localhost" for dev
 	RPOrigins     []string // e.g. ["https://gograb.example.com"] or dev origins
 	SessionSecret []byte   // 32 random bytes for WebAuthn session-token AES key
+
+	// Branding shown on the public /r/{token} page. Operator-configured so the
+	// customer sees a name they recognise instead of "GoGrab".
+	BrandName    string // defaults to "GoGrab"
+	BrandLogoURL string // optional; empty disables the logo image
+	BrandColor   string // optional hex (#0f172a default); accent for headings/buttons
 }
 
 func Load() (Config, error) {
@@ -175,6 +181,11 @@ func Load() (Config, error) {
 			return c, fmt.Errorf("gen session secret: %w", err)
 		}
 	}
+
+	// Branding — all optional, with safe defaults.
+	c.BrandName = env("GOGRAB_BRAND_NAME", "GoGrab")
+	c.BrandLogoURL = env("GOGRAB_BRAND_LOGO_URL", "")
+	c.BrandColor = env("GOGRAB_BRAND_COLOR", "")
 
 	if c.DatabaseURL == "" {
 		return c, fmt.Errorf("GOGRAB_DATABASE_URL is required")
