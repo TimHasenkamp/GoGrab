@@ -3,6 +3,7 @@
 package config
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -11,6 +12,61 @@ import (
 	"strings"
 	"time"
 )
+
+// LoadDotEnv looks for a `.env` file in the current working directory and
+// imports KEY=VALUE lines into the process environment. Existing env vars are
+// NOT overwritten — the real environment always wins. Comments (#) and blank
+// lines are skipped. Surrounding ASCII quotes are stripped from the value.
+//
+// Returns the path that was loaded (empty if no .env was found) and any
+// parse error.
+func LoadDotEnv() (string, error) {
+	const path = ".env"
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+	lineno := 0
+	for s.Scan() {
+		lineno++
+		line := strings.TrimSpace(s.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		eq := strings.IndexByte(line, '=')
+		if eq <= 0 {
+			return path, fmt.Errorf(".env:%d: not a KEY=VALUE line", lineno)
+		}
+		key := strings.TrimSpace(line[:eq])
+		val := strings.TrimSpace(line[eq+1:])
+		// strip inline trailing comment if value isn't quoted
+		if !strings.HasPrefix(val, `"`) && !strings.HasPrefix(val, `'`) {
+			if hash := strings.Index(val, " #"); hash >= 0 {
+				val = strings.TrimSpace(val[:hash])
+			}
+		}
+		// strip matched surrounding quotes
+		if len(val) >= 2 {
+			if (val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'') {
+				val = val[1 : len(val)-1]
+			}
+		}
+		if _, set := os.LookupEnv(key); set {
+			continue // never overwrite real env
+		}
+		_ = os.Setenv(key, val)
+	}
+	if err := s.Err(); err != nil {
+		return path, err
+	}
+	return path, nil
+}
 
 type Config struct {
 	ListenAddr           string

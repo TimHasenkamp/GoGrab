@@ -37,11 +37,21 @@ func main() {
 }
 
 func run() error {
+	// Auto-load .env in the working directory so `go run` and `./gograb`
+	// pick up local config without an external loader. Real env vars take
+	// precedence; the file is optional.
+	dotenvPath, dotenvErr := config.LoadDotEnv()
+
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 	log := newLogger(cfg.LogLevel)
+	if dotenvErr != nil {
+		log.Warn("dotenv parse error", "err", dotenvErr)
+	} else if dotenvPath != "" {
+		log.Info("loaded .env", "path", dotenvPath)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
