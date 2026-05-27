@@ -247,6 +247,11 @@ func (f *fakeDB) InsertAuditLog(_ context.Context, _ db.InsertAuditLogParams) er
 	return nil
 }
 
+func (f *fakeDB) CountViewsByRequest(_ context.Context, _ *uuid.UUID) (int32, error) {
+	// not modelled — tests that exercise view counts can mock more deeply.
+	return 0, nil
+}
+
 // --- test setup helpers ---
 
 func discardLogger() *slog.Logger {

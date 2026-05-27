@@ -45,6 +45,19 @@ func (q *Queries) CountRequestsByOperator(ctx context.Context, arg CountRequests
 	return n, err
 }
 
+const countViewsByRequest = `-- name: CountViewsByRequest :one
+SELECT COUNT(*)::int AS n
+FROM audit_log
+WHERE request_id = $1 AND action = 'request.view'
+`
+
+func (q *Queries) CountViewsByRequest(ctx context.Context, requestID *uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countViewsByRequest, requestID)
+	var n int32
+	err := row.Scan(&n)
+	return n, err
+}
+
 const createCredential = `-- name: CreateCredential :one
 INSERT INTO webauthn_credentials (
     operator_id, credential_id, public_key, sign_count, transports,

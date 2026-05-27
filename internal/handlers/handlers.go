@@ -134,6 +134,7 @@ type requestSummary struct {
 	RetrievedAt *string         `json:"retrieved_at"`
 	Status      string          `json:"status"`
 	FormSchema  json.RawMessage `json:"form_schema,omitempty"`
+	ViewCount   int32           `json:"view_count,omitempty"`
 }
 
 func toSummary(r db.Request) requestSummary {
@@ -366,6 +367,9 @@ func (d *Deps) AdminGet(w http.ResponseWriter, r *http.Request) {
 	}
 	s := toSummary(row)
 	s.Status = effectiveStatus(row)
+	if views, err := d.Queries.CountViewsByRequest(r.Context(), &row.ID); err == nil {
+		s.ViewCount = views
+	}
 	writeJSON(w, http.StatusOK, s)
 }
 
@@ -508,6 +512,13 @@ func (d *Deps) PublicMeta(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "failed to load")
 		return
 	}
+	// Best-effort: record each customer view so the operator can see if a
+	// link arrived. Async — failures don't block the response.
+	d.Audit.Log(r.Context(), audit.Entry{
+		Actor: "customer", Action: "request.view",
+		RequestID: &row.ID, OperatorID: &row.OperatorID,
+		Request: r,
+	})
 	writeJSON(w, http.StatusOK, publicMeta{
 		Description: row.Description,
 		ExpiresAt:   row.ExpiresAt.Time.UTC().Format(time.RFC3339),

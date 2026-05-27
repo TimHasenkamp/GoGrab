@@ -39,9 +39,11 @@ sind die, die ich vor v1.0-tag erledigt hätte.
   (default 180d) löscht alte Einträge. Operator-Cron / systemd-Timer
   exekutiert das tägliches. SQL ist execrows — geloggt wird die
   gelöschte Zeilenanzahl.
-- [ ] **#8 Customer-Page-Views-Signal.** Track Meta-Aufrufe → Operator sieht
-  „Link wurde 2× angeschaut, keine Submission". Hilft beim Nachhaken („Hat
-  der Kunde den Link überhaupt bekommen?").
+- [x] **#8 Customer-Page-Views-Signal.** Public-Meta-Endpoint feuert
+  jetzt einen `request.view`-Audit-Eintrag. `AdminGet` zählt diese und
+  liefert `view_count`. Detail-Seite zeigt „N× vom Kunden geöffnet —
+  aber noch keine Einreichung" im Pending-Zustand. Audit-UI hat ein
+  eigenes Label (hellblau) für `request.view`.
 
 ## 🟢 Polish (irgendwann)
 

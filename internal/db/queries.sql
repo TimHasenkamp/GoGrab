@@ -148,6 +148,11 @@ LIMIT $2;
 -- name: PruneAuditOlderThan :execrows
 DELETE FROM audit_log WHERE occurred_at < $1;
 
+-- name: CountViewsByRequest :one
+SELECT COUNT(*)::int AS n
+FROM audit_log
+WHERE request_id = $1 AND action = 'request.view';
+
 -- name: ListAuditByRequest :many
 SELECT id, occurred_at, actor, action, request_id, operator_id, ip, user_agent, metadata
 FROM audit_log

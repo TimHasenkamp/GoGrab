@@ -24,6 +24,7 @@
 
   const actionStyles: Record<string, { dot: string; label: string }> = {
     'request.create': { dot: 'bg-blue-500', label: 'Request angelegt' },
+    'request.view': { dot: 'bg-sky-400', label: 'Kunde hat Link geöffnet' },
     'request.submit': { dot: 'bg-emerald-500', label: 'Kunde eingereicht' },
     'request.retrieve': { dot: 'bg-amber-500', label: 'Geheimnis abgerufen' },
     'request.delete': { dot: 'bg-rose-500', label: 'Request gelöscht' },

@@ -14,6 +14,7 @@ import (
 type Querier interface {
 	CountCredentialsByOperator(ctx context.Context, operatorID uuid.UUID) (int32, error)
 	CountRequestsByOperator(ctx context.Context, arg CountRequestsByOperatorParams) (int32, error)
+	CountViewsByRequest(ctx context.Context, requestID *uuid.UUID) (int32, error)
 	CreateCredential(ctx context.Context, arg CreateCredentialParams) (WebauthnCredential, error)
 	CreateOperator(ctx context.Context, arg CreateOperatorParams) (Operator, error)
 	// =================== requests ===================

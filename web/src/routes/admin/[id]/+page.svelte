@@ -197,6 +197,12 @@
               {relativeTime(request.retrieved_at)}
             </dd>
           {/if}
+          {#if request.view_count != null && request.view_count > 0}
+            <dt class="text-slate-500">Link geöffnet</dt>
+            <dd class="text-slate-900">
+              {request.view_count}× vom Kunden{#if request.status === 'pending' && !request.submitted_at}<span class="ml-1 text-amber-700">— aber noch keine Einreichung</span>{/if}
+            </dd>
+          {/if}
         </dl>
       </div>
 

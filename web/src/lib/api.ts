@@ -35,6 +35,7 @@ export interface AdminRequestSummary {
   retrieved_at: string | null;
   status: 'pending' | 'submitted' | 'retrieved' | 'expired';
   form_schema?: import('./forms').FormField[];
+  view_count?: number;
 }
 
 export interface CreateRequestResponse {
