@@ -31,6 +31,31 @@ import (
 )
 
 func main() {
+	// Subcommand: `gograb migrate [up|down|status|version|redo|reset]`
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		action := ""
+		if len(os.Args) > 2 {
+			action = os.Args[2]
+		}
+		if _, err := config.LoadDotEnv(); err != nil {
+			fmt.Fprintln(os.Stderr, "fatal: dotenv:", err)
+			os.Exit(1)
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "fatal: config:", err)
+			os.Exit(1)
+		}
+		log := newLogger(cfg.LogLevel)
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := runMigrateCommand(ctx, action, log, cfg.DatabaseURL); err != nil {
+			fmt.Fprintln(os.Stderr, "fatal: migrate:", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "fatal:", err)
 		os.Exit(1)
@@ -64,6 +89,13 @@ func run() error {
 	defer pool.Close()
 	if err := pool.Ping(ctx); err != nil {
 		return fmt.Errorf("ping db: %w", err)
+	}
+	if cfg.MigrateOnBoot {
+		log.Info("applying migrations (GOGRAB_MIGRATE_ON_BOOT=1)")
+		if err := runMigrations(ctx, pool, log); err != nil {
+			return fmt.Errorf("migrate on boot: %w", err)
+		}
+		log.Info("migrations applied")
 	}
 	queries := db.New(pool)
 

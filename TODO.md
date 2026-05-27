@@ -12,9 +12,9 @@ sind die, die ich vor v1.0-tag erledigt hätte.
     Expiry, Wrong-Secret
   - `internal/audit`: synchroner Insert-Pfad mit DB-Fehler-Swallow, XFF,
     UA-Truncation
-- [ ] **#2 Migrate-on-Boot.** `gograb migrate` Subcommand + optional
-  `GOGRAB_MIGRATE_ON_BOOT=1` Env-Flag, das beim Start die Migrationen anwendet.
-  Sonst wird das Update 3 Releases später vergessen.
+- [x] **#2 Migrate-on-Boot.** Migrations sind via `//go:embed` ins Binary
+  gepackt. `gograb migrate {up,down,status,version,redo,reset}` als
+  Subcommand, plus `GOGRAB_MIGRATE_ON_BOOT=1` für Auto-Apply beim Start.
 - [ ] **#3 Trusted-Proxy-CIDR-Check.** `X-Authentik-Username`-Header nur
   akzeptieren, wenn `RemoteAddr` in einem konfigurierten Netz liegt
   (`GOGRAB_TRUSTED_PROXY_CIDR`). Verhindert Auth-Bypass falls der Port

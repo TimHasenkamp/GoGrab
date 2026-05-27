@@ -81,6 +81,7 @@ type Config struct {
 	NotifyWebhookURL     string
 	NotifyWebhookTimeout time.Duration
 	DevUser              string // empty unless GOGRAB_DEV_USER is set
+	MigrateOnBoot        bool   // GOGRAB_MIGRATE_ON_BOOT=1 → goose up before listening
 
 	// WebAuthn / session unlock
 	RPDisplayName string   // "GoGrab"
@@ -100,6 +101,9 @@ func Load() (Config, error) {
 	}
 	var err error
 	if c.TrustedProxy, err = envBool("GOGRAB_TRUSTED_PROXY", true); err != nil {
+		return c, err
+	}
+	if c.MigrateOnBoot, err = envBool("GOGRAB_MIGRATE_ON_BOOT", false); err != nil {
 		return c, err
 	}
 	hours, err := envInt("GOGRAB_DEFAULT_TTL_HOURS", 72)

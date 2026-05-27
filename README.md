@@ -78,10 +78,10 @@ docker run --name gograb-pg \
   -e POSTGRES_USER=gograb -e POSTGRES_PASSWORD=gograb -e POSTGRES_DB=gograb \
   -p 5433:5432 -d postgres:16-alpine
 
-# 2. Migrations
-go install github.com/pressly/goose/v3/cmd/goose@latest
+# 2. Migrations — embedded in the binary, no separate goose install needed
 export GOGRAB_DATABASE_URL="postgres://gograb:gograb@localhost:5433/gograb?sslmode=disable"
-goose -dir migrations postgres "$GOGRAB_DATABASE_URL" up
+go run ./cmd/server migrate up
+# (or `gograb migrate status` / `down` / `version` once the binary is built)
 
 # 3. Frontend build (populates web/build/ for go:embed)
 make build-web
@@ -128,8 +128,11 @@ docker buildx build --platform linux/amd64,linux/arm64 -t gograb:latest .
 cp .env.example .env           # fill in real POSTGRES_PASSWORD + WebAuthn vars
 docker compose up -d
 
-# apply migrations against the running DB
-goose -dir migrations postgres "$GOGRAB_DATABASE_URL" up
+# apply migrations either manually …
+docker compose exec app /app/gograb migrate up
+
+# … or set GOGRAB_MIGRATE_ON_BOOT=1 in .env so the server applies pending
+# migrations automatically on each start. Idempotent.
 ```
 
 The compose file declares Traefik labels for two routers:
