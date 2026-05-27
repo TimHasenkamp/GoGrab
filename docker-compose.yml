@@ -5,26 +5,34 @@
 
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: gograb:latest
+    # Pulled from GHCR by the deploy workflow. Override IMAGE_TAG to deploy a
+    # specific sha-XXXXXXX revision instead of the rolling :main pointer.
+    image: ghcr.io/timhasenkamp/gograb:${IMAGE_TAG:-main}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       GOGRAB_LISTEN_ADDR: ":8080"
-      GOGRAB_PUBLIC_BASE_URL: "https://gograb.example.com"
-      GOGRAB_LOG_LEVEL: "info"
+      GOGRAB_PUBLIC_BASE_URL: "${GOGRAB_PUBLIC_BASE_URL:-https://gograb.example.com}"
+      GOGRAB_LOG_LEVEL: "${GOGRAB_LOG_LEVEL:-info}"
       GOGRAB_TRUSTED_PROXY: "1"
-      GOGRAB_DATABASE_URL: "postgres://gograb:${POSTGRES_PASSWORD:-gograb}@postgres:5432/gograb?sslmode=disable"
+      GOGRAB_TRUSTED_PROXY_CIDRS: "${GOGRAB_TRUSTED_PROXY_CIDRS:-172.16.0.0/12,127.0.0.0/8}"
+      GOGRAB_DATABASE_URL: "postgres://gograb:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/gograb?sslmode=disable"
+      GOGRAB_MIGRATE_ON_BOOT: "1"
       GOGRAB_DEFAULT_TTL_HOURS: "72"
       GOGRAB_MAX_CIPHERTEXT_BYTES: "65536"
       GOGRAB_RATE_PER_MIN: "20"
       GOGRAB_RATE_BURST: "5"
       GOGRAB_NOTIFY_WEBHOOK_URL: "${GOGRAB_NOTIFY_WEBHOOK_URL:-}"
       GOGRAB_NOTIFY_WEBHOOK_TIMEOUT_SECONDS: "5"
+      GOGRAB_RP_DISPLAY_NAME: "${GOGRAB_RP_DISPLAY_NAME:-GoGrab}"
+      GOGRAB_RP_ID: "${GOGRAB_RP_ID:?GOGRAB_RP_ID required}"
+      GOGRAB_RP_ORIGINS: "${GOGRAB_RP_ORIGINS:?GOGRAB_RP_ORIGINS required}"
+      GOGRAB_SESSION_SECRET: "${GOGRAB_SESSION_SECRET:?GOGRAB_SESSION_SECRET required (32 bytes base64url)}"
+      GOGRAB_BRAND_NAME: "${GOGRAB_BRAND_NAME:-GoGrab}"
+      GOGRAB_BRAND_LOGO_URL: "${GOGRAB_BRAND_LOGO_URL:-}"
+      GOGRAB_BRAND_COLOR: "${GOGRAB_BRAND_COLOR:-}"
     networks:
       - proxy
       - internal

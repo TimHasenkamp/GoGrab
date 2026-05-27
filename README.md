@@ -114,25 +114,22 @@ also set:
 
 ## Deployment
 
-The shipping artifact is `ghcr.io/<owner>/gograb` (multi-arch, distroless)
-plus Postgres. Pushing a tag `v1.2.3` triggers
-[`.github/workflows/release.yml`](.github/workflows/release.yml) which
-builds + pushes linux/amd64 and linux/arm64.
+CI builds the image; deploy SSHes to prod whenever `[deploy]` is in the
+commit message. Full walkthrough including first-time prod setup, secrets,
+rollback and monitoring in [docs/DEPLOY.md](docs/DEPLOY.md).
+
+The shipping artifact is `ghcr.io/timhasenkamp/gograb:main` (multi-arch,
+distroless) plus Postgres. The compose file (`docker-compose.yml`) pulls
+the image directly; no local build needed on prod. `GOGRAB_MIGRATE_ON_BOOT=1`
+is on by default so DB migrations apply themselves on every container start.
+
+Manual / first-time setup:
 
 ```bash
-# manually:
-make docker-build              # local single-arch
-docker buildx build --platform linux/amd64,linux/arm64 -t gograb:latest .
-
 # docker-compose
-cp .env.example .env           # fill in real POSTGRES_PASSWORD + WebAuthn vars
+cp .env.example .env           # fill in real values; see docs/DEPLOY.md
+docker compose pull
 docker compose up -d
-
-# apply migrations either manually …
-docker compose exec app /app/gograb migrate up
-
-# … or set GOGRAB_MIGRATE_ON_BOOT=1 in .env so the server applies pending
-# migrations automatically on each start. Idempotent.
 ```
 
 The compose file declares Traefik labels for two routers:
