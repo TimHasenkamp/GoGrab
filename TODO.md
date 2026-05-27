@@ -51,8 +51,10 @@ sind die, die ich vor v1.0-tag erledigt hätte.
   eine Modal mit der Feldliste (Werte gemasked bei Passwort, gekürzt bei
   langem Text), erklärt nochmal an wen das Ganze geht und hat den eigentlichen
   „An $BRAND senden"-Button.
-- [ ] **#10 i18n.** Aktuell deutsch-only auf der Customer-Seite. Sprachschalter
-  (`de` / `en`) oder Auto-Detection via `Accept-Language`.
+- [x] **#10 i18n.** Customer-Seite jetzt `de`/`en`. Auto-Detection via
+  `navigator.language`, Override per `?lang=de|en`. DE/EN-Pill oben rechts
+  als Sprachschalter. Strength-Label nutzt jetzt eine `StrengthLevel`-Enum
+  statt fest „schwach/ok/stark/sehr stark" — i18n-fähig.
 - [x] **#11 Mailto-Quick-Action.** „Per Mail senden"-Button auf der
   Erfolgsseite und im Resend-Block — öffnet `mailto:` mit vorbefülltem
   Subject + Body inkl. Share-URL.

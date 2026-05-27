@@ -43,13 +43,18 @@ export function entropyBits(opts: PwOptions): number {
   return Math.round(Math.log2(setLen) * opts.length);
 }
 
-export type Strength = 'schwach' | 'ok' | 'stark' | 'sehr stark';
+export type StrengthLevel = 'weak' | 'ok' | 'strong' | 'very_strong';
 
-export function strengthLabel(bits: number): Strength {
-  if (bits < 60) return 'schwach';
+export function strengthLevel(bits: number): StrengthLevel {
+  if (bits < 60) return 'weak';
   if (bits < 90) return 'ok';
-  if (bits < 128) return 'stark';
-  return 'sehr stark';
+  if (bits < 128) return 'strong';
+  return 'very_strong';
+}
+
+// German label kept for callers that don't (yet) use i18n.
+export function strengthLabel(bits: number): string {
+  return { weak: 'schwach', ok: 'ok', strong: 'stark', very_strong: 'sehr stark' }[strengthLevel(bits)];
 }
 
 export function strengthColor(bits: number): string {

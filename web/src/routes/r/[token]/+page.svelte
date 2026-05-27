@@ -7,10 +7,14 @@
   import {
     generate,
     entropyBits,
-    strengthLabel,
+    strengthLevel,
     strengthColor,
     type PwOptions
   } from '$lib/pwgen';
+  import { i18n } from '$lib/i18n.svelte';
+
+  i18n.init();
+  const t = (k: any, p?: any) => i18n.t(k, p);
 
   const token = $derived($page.params.token ?? '');
 
@@ -94,20 +98,19 @@
   onMount(async () => {
     const hash = location.hash.startsWith('#') ? location.hash.slice(1) : '';
     if (!hash) {
-      keyError =
-        'Dieser Link enthält keinen Verschlüsselungs-Schlüssel. Bitte den Absender, den Link erneut zu schicken.';
+      keyError = t('card.missing_key.text');
     } else {
       try {
         key = await importKeyB64url(hash);
       } catch {
-        keyError = 'Der Schlüssel in diesem Link ist ungültig.';
+        keyError = t('card.bad_key.text');
       }
     }
     try {
       meta = await publicApi.meta(token);
       initStateForSchema(meta.form_schema ?? defaultSchema());
     } catch (e) {
-      loadError = (e as ApiError).message || 'Anfrage nicht gefunden';
+      loadError = (e as ApiError).message || t('card.unavailable.fallback');
     } finally {
       loading = false;
     }
@@ -134,7 +137,7 @@
       done = true;
       confirmOpen = false;
     } catch (e) {
-      submitError = (e as ApiError).message || 'Senden fehlgeschlagen';
+      submitError = (e as ApiError).message || t('error.submit_failed');
     } finally {
       submitting = false;
     }
@@ -142,7 +145,7 @@
 </script>
 
 <svelte:head>
-  <title>{meta?.branding.name ?? 'GoGrab'} — Geheimnis übermitteln</title>
+  <title>{t('page.title', { brand: meta?.branding.name ?? 'GoGrab' })}</title>
   <meta name="robots" content="noindex" />
 </svelte:head>
 
@@ -152,44 +155,46 @@
       <img src={meta.branding.logo_url} alt="" class="brand-logo" />
     {/if}
     <h1>{meta?.branding.name ?? 'GoGrab'}</h1>
+    <button
+      type="button"
+      onclick={() => i18n.toggle()}
+      class="lang-switch"
+      title="Sprache wechseln / Switch language"
+    >
+      {t('lang.switch')}
+    </button>
   </header>
 
   {#if loading}
-    <p class="muted">Lade …</p>
+    <p class="muted">{t('loading')}</p>
   {:else if loadError}
     <div class="card error">
-      <h2>Nicht verfügbar</h2>
+      <h2>{t('card.unavailable.title')}</h2>
       <p>{loadError}</p>
     </div>
   {:else if !meta}
-    <p class="muted">Keine Daten.</p>
+    <p class="muted">{t('card.no_data')}</p>
   {:else if keyError}
     <div class="card error">
-      <h2>Schlüssel fehlt</h2>
+      <h2>{t('card.missing_key.title')}</h2>
       <p>{keyError}</p>
     </div>
   {:else if meta.status === 'expired' || new Date(meta.expires_at) < new Date()}
     <div class="card error">
-      <h2>Abgelaufen</h2>
-      <p>Diese Anfrage ist abgelaufen und akzeptiert keine Einreichungen mehr.</p>
+      <h2>{t('card.expired.title')}</h2>
+      <p>{t('card.expired.text')}</p>
     </div>
   {:else if meta.status !== 'pending'}
     <div class="card success">
-      <h2>Bereits eingereicht</h2>
-      <p>Für diese Anfrage wurde bereits ein Geheimnis eingereicht.</p>
+      <h2>{t('card.already.title')}</h2>
+      <p>{t('card.already.text')}</p>
     </div>
   {:else if done}
     <div class="card success">
-      <h2>Übermittelt</h2>
-      <p>
-        Deine Eingaben wurden in deinem Browser verschlüsselt und sicher gesendet. Du kannst dieses
-        Tab jetzt schließen.
-      </p>
+      <h2>{t('card.done.title')}</h2>
+      <p>{t('card.done.text')}</p>
       {#if hasPasswordField}
-        <p class="hint">
-          Vergiss nicht: generierte Passwörter brauchst du selbst (in der Zwischenablage oder gespeichert).
-          Der Empfänger sieht sie nach Abruf nicht erneut.
-        </p>
+        <p class="hint">{t('card.done.pw_hint')}</p>
       {/if}
     </div>
   {:else}
@@ -227,15 +232,15 @@
                   required
                   maxlength="1000"
                   bind:value={values[f.id]}
-                  placeholder={f.placeholder || 'eigenes Passwort oder generieren …'}
+                  placeholder={f.placeholder || t('pw.placeholder')}
                   oninput={() => { pwSaved = { ...pwSaved, [f.id]: false }; }}
                 />
                 <button
                   type="button"
                   class="icon-btn"
                   onclick={() => (pwReveal = { ...pwReveal, [f.id]: !pwReveal[f.id] })}
-                  title={pwReveal[f.id] ? 'Verbergen' : 'Anzeigen'}
-                  aria-label={pwReveal[f.id] ? 'Verbergen' : 'Anzeigen'}
+                  title={pwReveal[f.id] ? t('pw.hide') : t('pw.show')}
+                  aria-label={pwReveal[f.id] ? t('pw.hide') : t('pw.show')}
                 >
                   {pwReveal[f.id] ? '🙈' : '👁'}
                 </button>
@@ -243,7 +248,7 @@
 
               <div class="pw-actions">
                 <button type="button" class="btn-secondary" onclick={() => regenerate(f.id)}>
-                  ↻ Generieren
+                  {t('pw.generate')}
                 </button>
                 <button
                   type="button"
@@ -251,7 +256,7 @@
                   disabled={!values[f.id]}
                   onclick={() => copyValue(f.id)}
                 >
-                  📋 Kopieren
+                  {t('pw.copy')}
                 </button>
               </div>
 
@@ -262,14 +267,14 @@
                     <div class="strength-fill" style:width={Math.min(100, (bits / 160) * 100) + '%'} style:background={strengthColor(bits)}></div>
                   </div>
                   <span class="strength-label" style:color={strengthColor(bits)}>
-                    {strengthLabel(bits)} · {bits} bits
+                    {t('pw.strength.' + strengthLevel(bits) as any)} · {t('pw.bits', { n: bits })}
                   </span>
                 </div>
 
                 <details class="opts">
-                  <summary>Anpassen</summary>
+                  <summary>{t('pw.adjust')}</summary>
                   <div class="opts-row">
-                    <span class="opts-label">Länge</span>
+                    <span class="opts-label">{t('pw.length')}</span>
                     <div class="chips">
                       {#each [16, 24, 32, 48] as n (n)}
                         <button
@@ -284,21 +289,21 @@
                     </div>
                   </div>
                   <div class="opts-row">
-                    <span class="opts-label">Sonderzeichen</span>
+                    <span class="opts-label">{t('pw.symbols')}</span>
                     <button
                       type="button"
                       class="chip"
                       class:active={pwOpts[f.id]?.symbols}
                       onclick={() => toggleSymbols(f.id)}
                     >
-                      {pwOpts[f.id]?.symbols ? 'an' : 'aus'}
+                      {pwOpts[f.id]?.symbols ? t('pw.on') : t('pw.off')}
                     </button>
                   </div>
                 </details>
 
                 <label class="confirm">
                   <input type="checkbox" bind:checked={pwSaved[f.id]} />
-                  <span>Ich habe „{f.label}" kopiert / gespeichert.</span>
+                  <span>{t('pw.confirm_saved', { label: f.label })}</span>
                 </label>
               {/if}
             {/if}
@@ -308,31 +313,24 @@
         {#if submitError}<p class="error-text">{submitError}</p>{/if}
 
         {#if hasPasswordField}
-          <div class="save-warn">
-            <strong>Passwörter speichern.</strong> Nach dem Absenden ruft der Empfänger sie einmalig ab —
-            danach sind sie auf dem Server gelöscht.
-          </div>
+          <div class="save-warn">{t('warn.save_passwords')}</div>
         {/if}
 
         <button type="submit" class="btn-submit" disabled={!canSubmit}>
-          {submitting ? 'Verschlüssele & sende …' : 'Sicher übermitteln'}
+          {submitting ? t('submit.button.busy') : t('submit.button.idle')}
         </button>
       </form>
 
-      <p class="note">
-        Deine Eingaben werden direkt in deinem Browser verschlüsselt, bevor sie gesendet werden. Der
-        Server kann den Inhalt nicht lesen.
-      </p>
+      <p class="note">{t('submit.note')}</p>
     </div>
   {/if}
 
   {#if confirmOpen && meta}
     <div class="modal-backdrop" role="dialog" aria-modal="true">
       <div class="modal">
-        <h2 class="modal-title">Bestätigen</h2>
+        <h2 class="modal-title">{t('confirm.title')}</h2>
         <p class="modal-lead">
-          Du übermittelst die folgenden Eingaben verschlüsselt an
-          <strong>{meta.branding.name}</strong>:
+          {@html t('confirm.lead', { brand: `<strong>${meta.branding.name}</strong>` })}
         </p>
         <ul class="modal-fields">
           {#each schema as f (f.id)}
@@ -348,17 +346,14 @@
             </li>
           {/each}
         </ul>
-        <p class="modal-note">
-          Werte werden in deinem Browser verschlüsselt, bevor sie gesendet werden — niemand außer
-          {meta.branding.name} kann sie lesen.
-        </p>
+        <p class="modal-note">{t('confirm.note', { brand: meta.branding.name })}</p>
         {#if submitError}<p class="error-text">{submitError}</p>{/if}
         <div class="modal-actions">
           <button type="button" class="btn-secondary" onclick={() => (confirmOpen = false)} disabled={submitting}>
-            Zurück, ich will noch was ändern
+            {t('confirm.back')}
           </button>
           <button type="button" class="btn-submit modal-confirm" onclick={reallySubmit} disabled={submitting}>
-            {submitting ? 'Verschlüssele & sende …' : `An ${meta.branding.name} senden`}
+            {submitting ? t('confirm.sending') : t('confirm.send', { brand: meta.branding.name })}
           </button>
         </div>
       </div>
@@ -367,10 +362,9 @@
 
   <footer>
     {#if meta?.branding.name && meta.branding.name !== 'GoGrab'}
-      Sicher übermittelt mit <strong>GoGrab</strong> für {meta.branding.name} —
-      Ende-zu-Ende verschlüsselt.
+      {@html t('footer.branded', { brand: meta.branding.name }).replace('GoGrab', '<strong>GoGrab</strong>')}
     {:else}
-      Powered by GoGrab — Ende-zu-Ende verschlüsselte Geheimnis-Übermittlung.
+      {t('footer.unbranded')}
     {/if}
   </footer>
 </main>
@@ -399,6 +393,22 @@
     width: auto;
     max-width: 6rem;
     object-fit: contain;
+  }
+  .lang-switch {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+  .lang-switch:hover {
+    background: #f1f5f9;
+    color: #0f172a;
   }
   h1 {
     font-size: 1.25rem;
