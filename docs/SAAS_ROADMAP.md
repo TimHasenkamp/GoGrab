@@ -32,47 +32,65 @@ einzige Sünde, die du dir bei einem Security-Tool nicht erlauben kannst.
 
 ### Tenant-Routing
 
-- [ ] **Subdomain-Routing**: `{slug}.app.gograb.io` → App liest den Slug aus
-      dem Host-Header, lädt die Org, setzt sie als Request-Kontext.
-- [ ] **Wildcard-TLS** via Traefik mit DNS-01-Challenge (Cloudflare etc.).
-- [ ] **Cookie-Scope**: Auth-Session-Cookies pro Subdomain — Cross-Org-Leak
-      auch auf der Cookie-Ebene verhindern.
-- [ ] **404 / Redirect für unbekannte Slugs** — kein Info-Leak welcher Slug
-      existiert vs. nicht.
+Empfohlene Default: **Path-based** (`app.gograb.io/orgs/{slug}/*`). Eine
+Domain, ein TLS-Cert, eine Cookie-Domain — minimaler Infra-Aufwand.
+Subdomain-Routing (`{slug}.app.gograb.io`) bleibt als optionales
+Upgrade für Team-Plan+ (kosmetisch nett, ein bisschen mehr Setup).
+
+- [ ] **Path-based Routing als Default**: SvelteKit-Route `/orgs/[slug]/...`,
+      Backend extrahiert `slug` aus dem URL-Pfad, lädt die Org, setzt sie
+      als Request-Kontext + setzt `app.org_id` für RLS.
+- [ ] **Org-Picker auf `/`** nach Login, wenn User Mitglied in > 1 Org ist.
+      Default-Redirect auf die letzte besuchte Org (Cookie / DB-Spalte).
+- [ ] **404 für unbekannte Slugs** ohne Info-Leak welcher Slug existiert.
+- [ ] **Custom Domain** für Customer-Links (`secrets.acme.com/r/TOKEN`) ist
+      ein separates Feature → siehe Phase 2.
+
+Bei späterem Wechsel auf Subdomain-Routing (Team-Plan+):
+- [ ] Wildcard-TLS via Traefik DNS-01.
+- [ ] Cookie-Domain `.app.gograb.io` für gemeinsames Login über Subdomains.
+- [ ] App akzeptiert beide Formen (`/orgs/{slug}` und `{slug}.app.gograb.io`).
 
 ### Self-Service Auth
 
-Zwei Pfade, beide funktionieren — entscheide dich für einen:
+**Ein gemeinsamer Login** für alle Tenants — kein per-Org-Branding auf der
+Login-Page, kein eigener Flow pro Tenant. Nach Login wird der Org-Kontext aus
+Subdomain (oder Org-Picker bei Multi-Org-Membership) abgeleitet. Spart
+massiv Komplexität und ist die Standard-Architektur für 99 % aller B2B-SaaS.
 
-#### Option A: Authentik (eigene Infra, kein Vendor-Lockin)
+Das bedeutet auch: **Authentik-Forward-Auth bleibt einsetzbar** — der einzige
+Unterschied zu heute ist, dass die User-Anlage self-service wird statt manuell.
 
-- [ ] **Authentik OIDC-Mode** statt Forward-Auth: GoGrab redirected auf
-      Authentik's `/authorize` und verarbeitet den Callback.
-- [ ] **Signup-Flow in Authentik**: Email + Passwort, Verifizierungs-Mail
-      (Authentik-Templates customizen), Anti-Spam (hCaptcha / Cloudflare Turnstile).
-- [ ] **Programmatic User → Org Bridge**: nach Signup ruft GoGrab Authentik's
-      API auf, legt User in die richtige Authentik-Group (= Org), anschließend
-      neuer Auth-Token. Webhook von Authentik → unsere App wäre cleaner.
-- [ ] **Password-Reset** über Authentik (built-in, braucht SMTP-Setup).
-- [ ] **2FA-Option** über Authentik (TOTP/WebAuthn — letzteres nutzen wir eh schon
-      für KEK-Unlock, hier ginge's um Login-MFA als zusätzliche Schicht).
-- [ ] **Branding pro Org**: Authentik kann Flow-Branding pro Tenant nicht
-      out-of-the-box → entweder Pull-Request zu Authentik, oder wir
-      machen einen Sub-Flow pro Org und vergeben dem User dynamisch das
-      richtige Branding — Aufwand.
+- [ ] **Self-Service-Signup in Authentik aktivieren**: Email + Passwort,
+      Verifizierungs-Mail (Authentik macht das selbst via SMTP), Anti-Spam
+      via Authentik's eingebautes Captcha-Stage oder Cloudflare Turnstile.
+- [ ] **Post-Signup-Hook**: Nach Authentik-Signup ruft GoGrab einen Webhook /
+      Auth-Event ab, legt eine neue `organizations`-Zeile an und assoziiert den
+      User als `owner` in `org_members`. Erst danach ist der User in seiner
+      Org „angekommen".
+- [ ] **Org-Slug-Auswahl** im Onboarding (nicht im Signup-Flow): nach erstem
+      Login fragt GoGrab nach Org-Name + Slug. Slug muss `[a-z0-9-]{3,32}`
+      sein und nicht in Reserved-Words-Liste.
+- [ ] **Password-Reset** über Authentik (built-in).
+- [ ] **2FA-Option** in Authentik (TOTP). WebAuthn-PRF für KEK-Unlock bleibt
+      separat — das ist nicht die Login-Schicht.
+- [ ] **Invite-Flow**: Owner kann andere Email-Adressen einladen → Authentik
+      schickt Invite-Mail mit Signup-Link → neuer User landet automatisch
+      in der einladenden Org.
 
-#### Option B: Clerk / WorkOS (SaaS-Identity-Provider)
+Aufwand: ~3-5 Tage. Die schwere Arbeit (Authentik-Konfiguration, SMTP)
+machst du in Authentik selbst, im GoGrab-Code ist's nur Member-Bridge +
+Onboarding-Wizard.
 
-- [ ] **Clerk SDK** ([clerk-svelte](https://clerk.com/docs/quickstarts/sveltekit))
-      oder [WorkOS AuthKit](https://workos.com/docs/user-management) integrieren.
-- [ ] **Organizations-Feature**: Clerk/WorkOS hat ein natives Org-Konzept,
-      bridgen mit unserer `organizations`-Tabelle (Webhook `organization.created`).
-- [ ] **JWT-Verifizierung** im Go-Backend statt Header-Trust.
-- [ ] **Email + Passkey-Login** (Clerk macht beides).
-- [ ] **Branding-API**: Clerk kann Login-UI pro Org einfärben — out-of-the-box.
+#### Wann doch Clerk/WorkOS in Erwägung ziehen
 
-Empfehlung: **Wenn du Authentik schon mit Liebe pflegst → A. Wenn du
-Time-to-Market priorisierst → B.** B ist 3-5 Tage, A eher 1-2 Wochen.
+Nur wenn:
+- Du **keinen Authentik-Aufwand** willst (Authentik selbst hosten, Updates fahren, SMTP konfigurieren).
+- Du **Passkey-Login** für die App-Auth willst (statt nur fürs KEK-Unlock).
+- Du **erwartest, dass Kunden Social-Logins anfragen** (Google, Microsoft).
+
+Ansonsten: bleib bei Authentik. Vendor-Lock-in vermeiden hat in dem Markt-
+Segment, in dem GoGrab spielt (Security-Tool, DACH-Markt) echten Wert.
 
 ### Transactional Email
 
@@ -289,13 +307,17 @@ Wenn die ersten 10-50 Kunden glücklich sind und Enterprise-Pitches kommen:
 
 | Phase | Zeit (Solo, Vollzeit) | Laufende Kosten (klein) |
 |---|---|---|
-| 0 — Foundations | 3-5 Wochen | ~$50-150/mo (DB, App-Host, TLS) |
+| 0 — Foundations | 2-3 Wochen | ~$50-150/mo (DB, App-Host, TLS) |
 | 1 — Launch-Ready | 3-5 Wochen | +$50-100/mo (Email, Error-Tracking, Status-Page) |
 | 2 — Table-Stakes | 4-8 Wochen | +$100-300/mo (Logs, Object-Storage, Support-Tools) |
 | 3 — Wachstum | nach Bedarf | abhängig von Kundenmenge + Compliance |
 
-**Realistischer Pfad**: 2-4 Monate Vollzeit-Solo bis Launch-bereit, plus
-geringe Side-Project-Wartung danach. Bei 1-2 Tagen/Woche → 6-12 Monate.
+**Realistischer Pfad**: 6-10 Wochen Vollzeit-Solo bis Launch-bereit, plus
+geringe Side-Project-Wartung danach. Bei 1-2 Tagen/Woche → 5-9 Monate.
+
+Phase 0 wurde von 3-5 auf 2-3 Wochen reduziert, weil wir bei Authentik-
+Forward-Auth bleiben (kein OIDC-Re-Architecture, kein per-Tenant-Branding-
+Flow) und path-based Routing nehmen (keine Wildcard-DNS-Tanzerei).
 
 ---
 
