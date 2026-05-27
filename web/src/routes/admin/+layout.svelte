@@ -9,6 +9,7 @@
   import Toaster from '$lib/Toaster.svelte';
   import ConfirmDialog from '$lib/ConfirmDialog.svelte';
   import Icon from '$lib/Icon.svelte';
+  import { theme } from '$lib/theme.svelte';
 
   let { children } = $props();
 
@@ -85,6 +86,15 @@
       </a>
 
       <nav class="flex items-center gap-1">
+        <button
+          type="button"
+          onclick={() => theme.toggle()}
+          class="mr-1 inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          title={theme.current === 'dark' ? 'Auf hellen Modus wechseln' : 'Auf dunklen Modus wechseln'}
+          aria-label="Theme wechseln"
+        >
+          <Icon name={theme.current === 'dark' ? 'sun' : 'moon'} size={16} />
+        </button>
         {#if session.isUnlocked}
           <a
             href="/admin"

@@ -5,9 +5,14 @@
 /* Geist via Google Fonts. Variable font, swap display for fast first paint. */
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
 
-/* Design tokens — mirrored from hasenkamp.dev so GoGrab's admin shares
-   the same visual language. Dark theme by design; no light counterpart. */
-:root {
+/* ----------------------------------------------------------------
+   Design tokens. Dark is the default. data-theme="light" on <html>
+   swaps the palette via the same variables, so consumers never need
+   to branch in their own styles. Inline init in app.html applies the
+   stored preference before first paint to avoid flash.
+---------------------------------------------------------------- */
+:root,
+:root[data-theme='dark'] {
   --background: #0a0a0f;
   --foreground: #e4e4e7;
   --card: #111118;
@@ -18,12 +23,37 @@
   --primary: #ffffff;
   --accent: #00e5ff;
   --accent-hover: #00b8d4;
-  --accent-glow: #00e5ff26;
+  --accent-glow: rgba(0, 229, 255, 0.18);
+  --accent-on: #0a0a0f; /* foreground when sitting on accent bg */
   --ring: #00e5ff;
 
   --success: #05df72;
   --warning: #fac800;
   --danger: #ff6568;
+
+  --backdrop: rgba(10, 10, 15, 0.75);
+}
+
+:root[data-theme='light'] {
+  --background: #ffffff;
+  --foreground: #18181b;
+  --card: #fafafa;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --primary: #18181b;
+  --accent: #0891b2;          /* darker cyan for AA contrast on white */
+  --accent-hover: #0e7490;
+  --accent-glow: rgba(8, 145, 178, 0.2);
+  --accent-on: #ffffff;
+  --ring: #0891b2;
+
+  --success: #16a34a;
+  --warning: #b45309;
+  --danger: #dc2626;
+
+  --backdrop: rgba(24, 24, 27, 0.45);
 }
 
 html,
@@ -38,13 +68,11 @@ body {
   min-height: 100dvh;
 }
 
-/* Selection in cyan to reinforce the accent. */
 ::selection {
   background: var(--accent-glow);
   color: var(--foreground);
 }
 
-/* Scrollbar: thin, dark, accent thumb. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
@@ -65,20 +93,38 @@ body {
   background: var(--accent-hover);
 }
 
-/* Form controls: dark base, cyan ring on focus. Tailwind's defaults
-   assume light mode and clash otherwise. */
+/* Form controls inherit the palette by default. Specific inputs can still
+   override with Tailwind utility classes. Without this, browsers paint
+   inputs white regardless of body bg. */
 input,
 textarea,
 select,
 button {
   font-family: inherit;
 }
+input:not([type='checkbox']):not([type='radio']):not([type='range']),
+textarea,
+select {
+  background-color: var(--card);
+  color: var(--foreground);
+  border-color: var(--border-strong);
+  color-scheme: dark light;
+}
+:root[data-theme='light'] input:not([type='checkbox']):not([type='radio']):not([type='range']),
+:root[data-theme='light'] textarea,
+:root[data-theme='light'] select {
+  color-scheme: light;
+}
+:root[data-theme='dark'] input:not([type='checkbox']):not([type='radio']):not([type='range']),
+:root[data-theme='dark'] textarea,
+:root[data-theme='dark'] select {
+  color-scheme: dark;
+}
 input::placeholder,
 textarea::placeholder {
   color: var(--muted-foreground);
 }
 
-/* Accent glow utility — used on primary buttons. */
 .shadow-accent-glow {
   box-shadow: 0 0 0 1px var(--accent-glow), 0 8px 28px -8px var(--accent-glow);
 }

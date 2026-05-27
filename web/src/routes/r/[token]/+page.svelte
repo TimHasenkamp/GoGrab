@@ -13,6 +13,7 @@
   } from '$lib/pwgen';
   import { i18n } from '$lib/i18n.svelte';
   import Icon from '$lib/Icon.svelte';
+  import { theme } from '$lib/theme.svelte';
 
   i18n.init();
   const t = (k: any, p?: any) => i18n.t(k, p);
@@ -156,14 +157,25 @@
       <img src={meta.branding.logo_url} alt="" class="brand-logo" />
     {/if}
     <h1>{meta?.branding.name ?? 'GoGrab'}</h1>
-    <button
-      type="button"
-      onclick={() => i18n.toggle()}
-      class="lang-switch"
-      title="Sprache wechseln / Switch language"
-    >
-      {t('lang.switch')}
-    </button>
+    <div class="header-actions">
+      <button
+        type="button"
+        onclick={() => theme.toggle()}
+        class="icon-pill"
+        title={theme.current === 'dark' ? 'Heller Modus' : 'Dunkler Modus'}
+        aria-label="Theme wechseln"
+      >
+        <Icon name={theme.current === 'dark' ? 'sun' : 'moon'} size={14} />
+      </button>
+      <button
+        type="button"
+        onclick={() => i18n.toggle()}
+        class="lang-switch"
+        title="Sprache wechseln / Switch language"
+      >
+        {t('lang.switch')}
+      </button>
+    </div>
   </header>
 
   {#if loading}
@@ -374,9 +386,12 @@
 
 <style>
   /* Customer surface adopts the same palette as the admin (mirrored from
-     hasenkamp.dev): dark base, cyan accent. --brand-color is per-operator
-     and falls back to the cyan accent. */
-  :root {
+     hasenkamp.dev): dark base by default, light theme reachable via the
+     <html data-theme="light"> attribute set by the init script. The
+     per-operator --brand-color cascades on top of these and overrides the
+     accent for primary CTAs / heading. */
+  :global(:root),
+  :global(:root[data-theme='dark']) {
     --c-bg: #0a0a0f;
     --c-fg: #e4e4e7;
     --c-muted: #71717a;
@@ -385,10 +400,26 @@
     --c-border-strong: #2a2a3d;
     --c-accent: #00e5ff;
     --c-accent-hover: #00b8d4;
-    --c-accent-glow: rgba(0, 229, 255, 0.15);
+    --c-accent-glow: rgba(0, 229, 255, 0.18);
     --c-success: #05df72;
     --c-warning: #fac800;
     --c-danger: #ff6568;
+    --c-backdrop: rgba(10, 10, 15, 0.75);
+  }
+  :global(:root[data-theme='light']) {
+    --c-bg: #ffffff;
+    --c-fg: #18181b;
+    --c-muted: #71717a;
+    --c-card: #fafafa;
+    --c-border: #e4e4e7;
+    --c-border-strong: #d4d4d8;
+    --c-accent: #0891b2;
+    --c-accent-hover: #0e7490;
+    --c-accent-glow: rgba(8, 145, 178, 0.2);
+    --c-success: #16a34a;
+    --c-warning: #b45309;
+    --c-danger: #dc2626;
+    --c-backdrop: rgba(24, 24, 27, 0.45);
   }
 
   :global(body) {
@@ -416,19 +447,36 @@
     max-width: 6rem;
     object-fit: contain;
   }
-  .lang-switch {
+  .header-actions {
     margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .lang-switch,
+  .icon-pill {
     background: transparent;
     border: 1px solid var(--c-border-strong);
     color: var(--c-muted);
     border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lang-switch {
     padding: 0.15rem 0.6rem;
     font-size: 0.7rem;
     font-weight: 600;
-    cursor: pointer;
     letter-spacing: 0.05em;
   }
-  .lang-switch:hover {
+  .icon-pill {
+    padding: 0.25rem;
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+  .lang-switch:hover,
+  .icon-pill:hover {
     border-color: var(--c-accent);
     color: var(--c-accent);
   }
