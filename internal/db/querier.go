@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -33,6 +34,7 @@ type Querier interface {
 	ListCredentialsByOperator(ctx context.Context, operatorID uuid.UUID) ([]WebauthnCredential, error)
 	ListRequestsByOperator(ctx context.Context, arg ListRequestsByOperatorParams) ([]Request, error)
 	MarkRetrievedAndPurge(ctx context.Context, id uuid.UUID) (MarkRetrievedAndPurgeRow, error)
+	PruneAuditOlderThan(ctx context.Context, occurredAt pgtype.Timestamptz) (int64, error)
 	SubmitCiphertext(ctx context.Context, arg SubmitCiphertextParams) (Request, error)
 	UpdateCredentialAfterUse(ctx context.Context, arg UpdateCredentialAfterUseParams) error
 	UpsertOperator(ctx context.Context, arg UpsertOperatorParams) (Operator, error)

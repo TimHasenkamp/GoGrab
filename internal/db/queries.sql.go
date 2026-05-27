@@ -580,6 +580,18 @@ func (q *Queries) MarkRetrievedAndPurge(ctx context.Context, id uuid.UUID) (Mark
 	return i, err
 }
 
+const pruneAuditOlderThan = `-- name: PruneAuditOlderThan :execrows
+DELETE FROM audit_log WHERE occurred_at < $1
+`
+
+func (q *Queries) PruneAuditOlderThan(ctx context.Context, occurredAt pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneAuditOlderThan, occurredAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const submitCiphertext = `-- name: SubmitCiphertext :one
 UPDATE requests
 SET ciphertext = $2,

@@ -35,9 +35,10 @@ sind die, die ich vor v1.0-tag erledigt hätte.
   (ILIKE), `@lim`/`@off`. `AdminList` liest `?q=&limit=&offset=`, neue
   `listResponse`-Hülle mit `items/total/limit/offset`. Frontend hat ein
   debounced Suchfeld und Vor/Zurück-Pagination ab > 50 Treffern.
-- [ ] **#7 Audit-Log-Retention.** `gograb prune-audit --older-than=180d`
-  Subcommand. Audit-Tabelle wächst sonst unbegrenzt. Idealerweise
-  Retention-Window per Env, der täglich gepruned wird.
+- [x] **#7 Audit-Log-Retention.** `gograb prune-audit [days]`-Subcommand
+  (default 180d) löscht alte Einträge. Operator-Cron / systemd-Timer
+  exekutiert das tägliches. SQL ist execrows — geloggt wird die
+  gelöschte Zeilenanzahl.
 - [ ] **#8 Customer-Page-Views-Signal.** Track Meta-Aufrufe → Operator sieht
   „Link wurde 2× angeschaut, keine Submission". Hilft beim Nachhaken („Hat
   der Kunde den Link überhaupt bekommen?").

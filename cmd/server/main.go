@@ -31,29 +31,40 @@ import (
 )
 
 func main() {
-	// Subcommand: `gograb migrate [up|down|status|version|redo|reset]`
-	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		action := ""
-		if len(os.Args) > 2 {
-			action = os.Args[2]
+	// Subcommands. Loaded config + db url are shared between all of them.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "migrate", "prune-audit":
+			if _, err := config.LoadDotEnv(); err != nil {
+				fmt.Fprintln(os.Stderr, "fatal: dotenv:", err)
+				os.Exit(1)
+			}
+			cfg, err := config.Load()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "fatal: config:", err)
+				os.Exit(1)
+			}
+			log := newLogger(cfg.LogLevel)
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+
+			var err2 error
+			switch os.Args[1] {
+			case "migrate":
+				action := ""
+				if len(os.Args) > 2 {
+					action = os.Args[2]
+				}
+				err2 = runMigrateCommand(ctx, action, log, cfg.DatabaseURL)
+			case "prune-audit":
+				err2 = runPruneAuditCommand(ctx, os.Args[2:], log, cfg.DatabaseURL)
+			}
+			if err2 != nil {
+				fmt.Fprintln(os.Stderr, "fatal:", os.Args[1]+":", err2)
+				os.Exit(1)
+			}
+			return
 		}
-		if _, err := config.LoadDotEnv(); err != nil {
-			fmt.Fprintln(os.Stderr, "fatal: dotenv:", err)
-			os.Exit(1)
-		}
-		cfg, err := config.Load()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "fatal: config:", err)
-			os.Exit(1)
-		}
-		log := newLogger(cfg.LogLevel)
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
-		if err := runMigrateCommand(ctx, action, log, cfg.DatabaseURL); err != nil {
-			fmt.Fprintln(os.Stderr, "fatal: migrate:", err)
-			os.Exit(1)
-		}
-		return
 	}
 
 	if err := run(); err != nil {
