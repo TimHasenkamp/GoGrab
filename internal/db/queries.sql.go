@@ -258,6 +258,25 @@ func (q *Queries) GetCredentialByCredentialID(ctx context.Context, credentialID 
 	return i, err
 }
 
+const getOperatorByID = `-- name: GetOperatorByID :one
+SELECT id, username, email, prf_salt, created_at
+FROM operators
+WHERE id = $1
+`
+
+func (q *Queries) GetOperatorByID(ctx context.Context, id uuid.UUID) (Operator, error) {
+	row := q.db.QueryRow(ctx, getOperatorByID, id)
+	var i Operator
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PrfSalt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getOperatorByUsername = `-- name: GetOperatorByUsername :one
 
 SELECT id, username, email, prf_salt, created_at

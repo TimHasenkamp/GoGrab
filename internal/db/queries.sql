@@ -5,6 +5,11 @@ SELECT id, username, email, prf_salt, created_at
 FROM operators
 WHERE username = $1;
 
+-- name: GetOperatorByID :one
+SELECT id, username, email, prf_salt, created_at
+FROM operators
+WHERE id = $1;
+
 -- name: CreateOperator :one
 INSERT INTO operators (username, email, prf_salt)
 VALUES ($1, $2, $3)

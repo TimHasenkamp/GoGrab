@@ -21,11 +21,11 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/timhasenkamp/gograb/internal/audit"
-	"github.com/timhasenkamp/gograb/internal/auth"
 	"github.com/timhasenkamp/gograb/internal/config"
 	"github.com/timhasenkamp/gograb/internal/db"
 	"github.com/timhasenkamp/gograb/internal/handlers"
 	"github.com/timhasenkamp/gograb/internal/notify"
+	"github.com/timhasenkamp/gograb/internal/session"
 	gogwebauthn "github.com/timhasenkamp/gograb/internal/webauthn"
 	"github.com/timhasenkamp/gograb/web"
 )
@@ -135,6 +135,20 @@ func run() error {
 	}
 	deps.WithAuth(&handlers.AuthDeps{WebAuthn: waSvc})
 	log.Info("webauthn ready", "rp_id", cfg.RPID, "origins", cfg.RPOrigins)
+
+	sessMgr, err := session.NewManager(cfg.SessionSecret, cfg.CookieSecure)
+	if err != nil {
+		return fmt.Errorf("init session manager: %w", err)
+	}
+	deps.WithSession(&handlers.SessionDeps{
+		Manager:     sessMgr,
+		AllowSignup: cfg.AllowSignup,
+	})
+	log.Info("session manager ready",
+		"cookie_secure", cfg.CookieSecure,
+		"allow_signup", cfg.AllowSignup,
+	)
+
 	mux := buildRouter(cfg, deps, log)
 
 	srv := &http.Server{
@@ -180,20 +194,14 @@ func buildRouter(cfg config.Config, deps *handlers.Deps, log *slog.Logger) http.
 	mux.Handle("GET /api/requests/{token}/meta", publicMW(http.HandlerFunc(deps.PublicMeta)))
 	mux.Handle("POST /api/requests/{token}/submit", publicMW(http.HandlerFunc(deps.PublicSubmit)))
 
-	// --- admin API (forward-auth) ---
-	var adminMW func(http.Handler) http.Handler
+	// --- admin API (session cookie) ---
+	var admin func(http.Handler) http.Handler
 	if cfg.DevUser != "" {
-		log.Warn("DEV MODE: admin endpoints use fixed dev user", "user", cfg.DevUser)
-		adminMW = auth.DevMiddleware(cfg.DevUser, cfg.DevUser+"@local")
+		log.Warn("DEV MODE: admin endpoints bypass auth, fixed dev user", "user", cfg.DevUser)
+		admin = chain(deps.DevSessionMiddleware(cfg.DevUser, cfg.DevUser+"@local"))
 	} else {
-		adminMW = auth.Middleware(cfg.TrustedProxy, cfg.TrustedProxyCIDRs)
-		if len(cfg.TrustedProxyCIDRs) > 0 {
-			log.Info("forward-auth restricted to trusted CIDRs", "cidrs", cfg.TrustedProxyCIDRs)
-		} else if cfg.TrustedProxy {
-			log.Warn("forward-auth trusts ALL source IPs — set GOGRAB_TRUSTED_PROXY_CIDRS to harden")
-		}
+		admin = chain(deps.SessionMiddleware(true))
 	}
-	admin := chain(adminMW)
 
 	mux.Handle("GET /api/admin/requests", admin(http.HandlerFunc(deps.AdminList)))
 	mux.Handle("POST /api/admin/requests", admin(http.HandlerFunc(deps.AdminCreate)))
@@ -201,14 +209,20 @@ func buildRouter(cfg config.Config, deps *handlers.Deps, log *slog.Logger) http.
 	mux.Handle("POST /api/admin/requests/{id}/retrieve", admin(http.HandlerFunc(deps.AdminRetrieve)))
 	mux.Handle("DELETE /api/admin/requests/{id}", admin(http.HandlerFunc(deps.AdminDelete)))
 
-	// WebAuthn / unlock ceremony endpoints (forward-auth still required)
+	// Adding more authenticators after the initial signup — session required.
 	mux.Handle("GET /api/admin/auth/status", admin(http.HandlerFunc(deps.AuthStatus)))
 	mux.Handle("POST /api/admin/auth/register/begin", admin(http.HandlerFunc(deps.AuthRegisterBegin)))
 	mux.Handle("POST /api/admin/auth/register/finish", admin(http.HandlerFunc(deps.AuthRegisterFinish)))
-	mux.Handle("POST /api/admin/auth/login/begin", admin(http.HandlerFunc(deps.AuthLoginBegin)))
-	mux.Handle("POST /api/admin/auth/login/finish", admin(http.HandlerFunc(deps.AuthLoginFinish)))
 	mux.Handle("GET /api/admin/auth/credentials", admin(http.HandlerFunc(deps.AuthListCredentials)))
 	mux.Handle("DELETE /api/admin/auth/credentials/{id}", admin(http.HandlerFunc(deps.AuthDeleteCredential)))
+	mux.Handle("POST /api/admin/auth/logout", admin(http.HandlerFunc(deps.AuthLogout)))
+
+	// Login + signup — unauthenticated; signup is rate-limited per IP.
+	signupRL := newRateLimiter(rate.Limit(float64(cfg.SignupRatePerHour)/3600.0), cfg.SignupRatePerHour)
+	mux.Handle("POST /api/admin/auth/login/begin", http.HandlerFunc(deps.AuthLoginBegin))
+	mux.Handle("POST /api/admin/auth/login/finish", http.HandlerFunc(deps.AuthLoginFinish))
+	mux.Handle("POST /api/admin/auth/signup/begin", signupRL.Middleware(http.HandlerFunc(deps.AuthSignupBegin)))
+	mux.Handle("POST /api/admin/auth/signup/finish", signupRL.Middleware(http.HandlerFunc(deps.AuthSignupFinish)))
 
 	mux.Handle("GET /api/admin/audit", admin(http.HandlerFunc(deps.AdminAudit)))
 

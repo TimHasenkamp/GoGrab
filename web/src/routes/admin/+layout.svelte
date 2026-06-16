@@ -19,36 +19,49 @@
   let unlockError = $state<string | null>(null);
 
   const path = $derived($page.url.pathname);
-  const isSetup = $derived(path.startsWith('/admin/setup'));
+  // Login/signup own their chrome and run their own auth-establishing flow;
+  // they must NOT go through the session-required bootstrap below or we'd
+  // loop redirecting an unauthenticated visitor straight back to /admin/login.
+  const isAuthPage = $derived(path === '/admin/login' || path === '/admin/signup');
   const isList = $derived(path === '/admin');
 
   onMount(async () => {
+    if (isAuthPage) {
+      booting = false;
+      return;
+    }
     try {
       const status = await authApi.status();
       session.username = status.username;
       session.hasCredentials = status.has_credentials;
       session.prfSaltB64 = status.prf_salt_b64;
-
-      if (!status.has_credentials && !isSetup) {
-        await goto('/admin/setup', { replaceState: true });
-      }
     } catch (e) {
+      const code = (e as ApiError).error;
+      if (code === 'unauthorized' || code === 'http_401') {
+        await goto('/admin/login', { replaceState: true });
+        return;
+      }
       bootError = (e as ApiError).message || 'Status konnte nicht geladen werden';
     } finally {
       booting = false;
     }
   });
 
+  // Re-tap the authenticator to put the Master-KEK back in memory after a
+  // page reload. Same flow as login (a tab refresh keeps the cookie but loses
+  // the in-memory key) — so we reuse loginBegin/loginFinish with the username
+  // the session middleware already established.
   async function unlock() {
-    if (unlocking || !session.prfSalt) return;
+    if (unlocking || !session.prfSalt || !session.username) return;
     unlocking = true;
     unlockError = null;
     try {
-      const begin = await authApi.loginBegin();
+      const begin = await authApi.loginBegin({ username: session.username });
       const salt = session.prfSalt;
       if (!salt) throw new Error('Kein PRF-Salt');
       const { response, prfOutput } = await authenticate(salt, begin.options);
       const finish = await authApi.loginFinish({
+        username: session.username,
         credential_response: response,
         session_token: begin.session_token
       });
@@ -65,119 +78,131 @@
     }
   }
 
-  function lock() {
+  async function logout() {
+    try {
+      await authApi.logout();
+    } catch {
+      // even if the server hiccupped, clear local state and bounce home
+    }
     session.lock();
+    session.username = null;
+    session.hasCredentials = null;
+    session.prfSaltB64 = null;
+    await goto('/admin/login', { replaceState: true });
   }
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
-  <header class="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
-    <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
-      <a href="/admin" class="flex items-center gap-2.5 text-foreground">
-        <span class="grid h-8 w-8 place-items-center rounded-lg bg-accent text-background shadow-accent-glow">
-          <Icon name="lock" size={16} strokeWidth={2.5} />
-        </span>
-        <div class="leading-tight">
-          <div class="text-sm font-semibold tracking-tight">GoGrab</div>
-          <div class="text-[11px] text-muted-foreground">
-            Secret requests<span class="text-accent">.</span>
+  {#if isAuthPage}
+    {@render children?.()}
+  {:else}
+    <header class="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
+      <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
+        <a href="/admin" class="flex items-center gap-2.5 text-foreground">
+          <span class="grid h-8 w-8 place-items-center rounded-lg bg-accent text-background shadow-accent-glow">
+            <Icon name="lock" size={16} strokeWidth={2.5} />
+          </span>
+          <div class="leading-tight">
+            <div class="text-sm font-semibold tracking-tight">GoGrab</div>
+            <div class="text-[11px] text-muted-foreground">
+              Secret requests<span class="text-accent">.</span>
+            </div>
           </div>
-        </div>
-      </a>
+        </a>
 
-      <nav class="flex items-center gap-1">
-        <button
-          type="button"
-          onclick={() => theme.toggle()}
-          class="mr-1 inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-          title={theme.current === 'dark' ? 'Auf hellen Modus wechseln' : 'Auf dunklen Modus wechseln'}
-          aria-label="Theme wechseln"
-        >
-          <Icon name={theme.current === 'dark' ? 'sun' : 'moon'} size={16} />
-        </button>
-        {#if session.isUnlocked}
-          <a
-            href="/admin"
-            class="rounded-md px-3 py-1.5 text-sm font-medium {isList
-              ? 'bg-muted text-foreground'
-              : 'text-muted-foreground hover:text-foreground'}"
-          >
-            Requests
-          </a>
-          <a
-            href="/admin/security"
-            class="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            Security
-          </a>
-          <a
-            href="/admin/audit"
-            class="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            Audit
-          </a>
-          <a
-            href="/admin/new"
-            class="ml-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-background transition hover:bg-accent-hover hover:shadow-accent-glow"
-          >
-            <Icon name="plus" size={14} strokeWidth={2.5} />
-            Neuer Request
-          </a>
+        <nav class="flex items-center gap-1">
           <button
             type="button"
-            onclick={lock}
-            class="ml-2 inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:border-border-strong hover:text-foreground"
-            title="Session sperren"
+            onclick={() => theme.toggle()}
+            class="mr-1 inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            title={theme.current === 'dark' ? 'Auf hellen Modus wechseln' : 'Auf dunklen Modus wechseln'}
+            aria-label="Theme wechseln"
           >
-            <Icon name="log-out" size={12} />
-            Lock
+            <Icon name={theme.current === 'dark' ? 'sun' : 'moon'} size={16} />
           </button>
-        {/if}
-      </nav>
-    </div>
-  </header>
-
-  <main>
-    {#if booting}
-      <div class="mx-auto max-w-2xl p-8 text-sm text-muted-foreground">Lade …</div>
-    {:else if bootError}
-      <div class="mx-auto max-w-2xl p-8">
-        <div class="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
-          {bootError}
-        </div>
-      </div>
-    {:else if isSetup || (session.hasCredentials && session.isUnlocked)}
-      {@render children?.()}
-    {:else if session.hasCredentials && !session.isUnlocked}
-      <div class="mx-auto max-w-md px-6 py-12">
-        <div class="rounded-xl border border-border bg-card p-6 text-center">
-          <div
-            class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent"
-          >
-            <Icon name="lock" size={22} strokeWidth={1.8} />
-          </div>
-          <h1 class="text-base font-semibold tracking-tight text-foreground">Session entsperren</h1>
-          <p class="mt-1 text-sm text-muted-foreground">
-            Tippe deinen YubiKey an, um den Master-Schlüssel zu laden. Bleibt bis du diesen Tab
-            schließt.
-          </p>
-          {#if unlockError}
-            <p class="mt-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-              {unlockError}
-            </p>
+          {#if session.isUnlocked}
+            <a
+              href="/admin"
+              class="rounded-md px-3 py-1.5 text-sm font-medium {isList
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground'}"
+            >
+              Requests
+            </a>
+            <a
+              href="/admin/security"
+              class="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              Security
+            </a>
+            <a
+              href="/admin/audit"
+              class="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              Audit
+            </a>
+            <a
+              href="/admin/new"
+              class="ml-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-background transition hover:bg-accent-hover hover:shadow-accent-glow"
+            >
+              <Icon name="plus" size={14} strokeWidth={2.5} />
+              Neuer Request
+            </a>
+            <button
+              type="button"
+              onclick={logout}
+              class="ml-2 inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:border-border-strong hover:text-foreground"
+              title="Abmelden"
+            >
+              <Icon name="log-out" size={12} />
+              Logout
+            </button>
           {/if}
-          <button
-            type="button"
-            onclick={unlock}
-            disabled={unlocking}
-            class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background transition hover:bg-accent-hover hover:shadow-accent-glow disabled:opacity-50"
-          >
-            {unlocking ? 'Warte auf YubiKey …' : 'Mit YubiKey entsperren'}
-          </button>
-        </div>
+        </nav>
       </div>
-    {/if}
-  </main>
+    </header>
+
+    <main>
+      {#if booting}
+        <div class="mx-auto max-w-2xl p-8 text-sm text-muted-foreground">Lade …</div>
+      {:else if bootError}
+        <div class="mx-auto max-w-2xl p-8">
+          <div class="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
+            {bootError}
+          </div>
+        </div>
+      {:else if session.hasCredentials && session.isUnlocked}
+        {@render children?.()}
+      {:else if session.hasCredentials && !session.isUnlocked}
+        <div class="mx-auto max-w-md px-6 py-12">
+          <div class="rounded-xl border border-border bg-card p-6 text-center">
+            <div
+              class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent"
+            >
+              <Icon name="lock" size={22} strokeWidth={1.8} />
+            </div>
+            <h1 class="text-base font-semibold tracking-tight text-foreground">Session entsperren</h1>
+            <p class="mt-1 text-sm text-muted-foreground">
+              Tippe deinen Authenticator an, um den Master-Schlüssel zu laden.
+            </p>
+            {#if unlockError}
+              <p class="mt-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {unlockError}
+              </p>
+            {/if}
+            <button
+              type="button"
+              onclick={unlock}
+              disabled={unlocking}
+              class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background transition hover:bg-accent-hover hover:shadow-accent-glow disabled:opacity-50"
+            >
+              {unlocking ? 'Warte auf Authenticator …' : 'Entsperren'}
+            </button>
+          </div>
+        </div>
+      {/if}
+    </main>
+  {/if}
 
   <Toaster />
   <ConfirmDialog />

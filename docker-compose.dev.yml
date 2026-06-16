@@ -1,0 +1,32 @@
+# Local development Postgres only.
+#
+# The prod docker-compose.yml runs the Go app + DB together and gates on
+# GOGRAB_HOST etc. — useless for local dev where the Go server runs on the
+# host via `go run`. This file ships just Postgres, exposed on :5432, with
+# the gograb/gograb/gograb defaults baked in so it matches the dev .env.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down
+#   docker compose -f docker-compose.dev.yml down -v   # reset DB
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gograb-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gograb
+      POSTGRES_PASSWORD: gograb
+      POSTGRES_DB: gograb
+    ports:
+      - "5432:5432"
+    volumes:
+      - gograb-pg-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gograb -d gograb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  gograb-pg-dev:

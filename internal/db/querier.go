@@ -23,6 +23,7 @@ type Querier interface {
 	DeleteRequest(ctx context.Context, arg DeleteRequestParams) error
 	ExpirePendingRequests(ctx context.Context) (int64, error)
 	GetCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error)
+	GetOperatorByID(ctx context.Context, id uuid.UUID) (Operator, error)
 	// =================== operators ===================
 	GetOperatorByUsername(ctx context.Context, username string) (Operator, error)
 	GetRequestByID(ctx context.Context, id uuid.UUID) (Request, error)

@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -73,8 +72,6 @@ type Config struct {
 	ListenAddr           string
 	PublicBaseURL        string
 	LogLevel             string
-	TrustedProxy         bool
-	TrustedProxyCIDRs    []netip.Prefix // if non-empty, X-Authentik-* only honored when RemoteAddr matches
 	DatabaseURL          string
 	DefaultTTL           time.Duration
 	MaxCiphertextBytes   int
@@ -84,6 +81,9 @@ type Config struct {
 	NotifyWebhookTimeout time.Duration
 	DevUser              string // empty unless GOGRAB_DEV_USER is set
 	MigrateOnBoot        bool   // GOGRAB_MIGRATE_ON_BOOT=1 → goose up before listening
+	AllowSignup          bool   // GOGRAB_SIGNUP_ENABLED — opens /signup endpoints. Default true.
+	CookieSecure         bool   // GOGRAB_COOKIE_SECURE — sets Secure flag on session cookie. Default true; flip off for plain-HTTP local dev.
+	SignupRatePerHour    int    // per-IP signup attempts allowed per hour (default 3)
 
 	// WebAuthn / session unlock
 	RPDisplayName string   // "GoGrab"
@@ -108,24 +108,17 @@ func Load() (Config, error) {
 		DevUser:              env("GOGRAB_DEV_USER", ""),
 	}
 	var err error
-	if c.TrustedProxy, err = envBool("GOGRAB_TRUSTED_PROXY", true); err != nil {
-		return c, err
-	}
 	if c.MigrateOnBoot, err = envBool("GOGRAB_MIGRATE_ON_BOOT", false); err != nil {
 		return c, err
 	}
-	if raw := os.Getenv("GOGRAB_TRUSTED_PROXY_CIDRS"); raw != "" {
-		for _, cidr := range strings.Split(raw, ",") {
-			cidr = strings.TrimSpace(cidr)
-			if cidr == "" {
-				continue
-			}
-			p, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				return c, fmt.Errorf("GOGRAB_TRUSTED_PROXY_CIDRS: %q is not a valid CIDR: %w", cidr, err)
-			}
-			c.TrustedProxyCIDRs = append(c.TrustedProxyCIDRs, p)
-		}
+	if c.AllowSignup, err = envBool("GOGRAB_SIGNUP_ENABLED", true); err != nil {
+		return c, err
+	}
+	if c.CookieSecure, err = envBool("GOGRAB_COOKIE_SECURE", true); err != nil {
+		return c, err
+	}
+	if c.SignupRatePerHour, err = envInt("GOGRAB_SIGNUP_RATE_PER_HOUR", 3); err != nil {
+		return c, err
 	}
 	hours, err := envInt("GOGRAB_DEFAULT_TTL_HOURS", 72)
 	if err != nil {

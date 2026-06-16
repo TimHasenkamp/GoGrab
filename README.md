@@ -48,7 +48,7 @@ single-click.
   ceremonies; PRF extension for the operator unlock
 - SvelteKit 2 with `adapter-static` + Svelte 5 Runes + TypeScript strict
 - TailwindCSS for the admin SPA; vanilla scoped CSS for the public submit page
-- Authentik forward-auth via Traefik for `/admin/*` and `/api/admin/*`
+- Built-in WebAuthn signup/login — no external IDP, session via HMAC-signed cookie
 - Distroless static container, multi-arch (linux/amd64 + linux/arm64)
 
 ## Project layout
@@ -56,17 +56,18 @@ single-click.
 ```
 cmd/server/          single Go binary, embeds web/build via go:embed
 internal/audit/      append-only audit-log dispatcher
-internal/auth/       Authentik forward-auth middleware
+internal/auth/       authenticated-user context plumbing
 internal/config/     env-driven config
 internal/db/         sqlc-generated queries
-internal/handlers/   HTTP handlers + security headers + 404 backoff
+internal/handlers/   HTTP handlers + signup/login + security headers + 404 backoff
 internal/notify/     webhook dispatcher
+internal/session/    HMAC-signed session-cookie manager
 internal/token/      crypto/rand URL-safe token generator
 internal/webauthn/   go-webauthn wrapper + Operator User adapter
 migrations/          goose .sql migrations
 web/                 SvelteKit project; web/web.go owns the //go:embed
 Dockerfile           multi-arch build: node → go → distroless
-docker-compose.yml   app + postgres + Traefik labels (Authentik forward-auth)
+docker-compose.yml   app + postgres + Traefik labels (single router, app handles auth)
 .github/workflows/   CI, multi-arch release, CodeQL
 ```
 
@@ -86,13 +87,18 @@ go run ./cmd/server migrate up
 # 3. Frontend build (populates web/build/ for go:embed)
 make build-web
 
-# 4. Run the server with a dev user (no Authentik required)
-GOGRAB_DEV_USER=alice GOGRAB_TRUSTED_PROXY=0 make run
+# 4. Run the server with a dev user (auto-creates an operator on first hit,
+#    bypasses the login flow so you can iterate without re-tapping the key)
+GOGRAB_DEV_USER=alice GOGRAB_COOKIE_SECURE=false make run
 
 # In another shell, run vite for hot-reload of the admin UI:
 cd web && npm run dev
-# → open http://localhost:5173/admin and register your YubiKey at /admin/setup
+# → open http://localhost:5173/admin and register your YubiKey at /admin/security
 ```
+
+To exercise the real login/signup flow locally instead, omit `GOGRAB_DEV_USER`
+and visit `/admin/signup`.
+
 
 You need a WebAuthn authenticator that supports the **PRF extension**:
 - YubiKey 5+ with firmware ≥ 5.7
@@ -103,14 +109,16 @@ You need a WebAuthn authenticator that supports the **PRF extension**:
 ## Environment
 
 See [`.env.example`](./.env.example). Required: `GOGRAB_DATABASE_URL`. Set
-`GOGRAB_DEV_USER` to bypass Authentik for local development. In production,
-also set:
+`GOGRAB_DEV_USER` to bypass the login flow for local development. In
+production, also set:
 
-- `GOGRAB_TRUSTED_PROXY=1` (behind Traefik+Authentik)
 - `GOGRAB_RP_ID` = your public hostname (e.g. `gograb.example.com`)
 - `GOGRAB_RP_ORIGINS` = the full HTTPS origin
-- `GOGRAB_SESSION_SECRET` = 32 random bytes, base64url-encoded, stable across restarts
+- `GOGRAB_SESSION_SECRET` = 32 random bytes, base64url-encoded, stable across
+  restarts (also signs the login session cookie)
 - A real `POSTGRES_PASSWORD` (rotate from the `CHANGEME` default)
+- After onboarding all the operators you want, flip `GOGRAB_SIGNUP_ENABLED=false`
+  to close down `/admin/signup`
 
 ## Deployment
 
@@ -132,18 +140,13 @@ docker compose pull
 docker compose up -d
 ```
 
-The compose file declares Traefik labels for two routers:
-
-- `gograb-admin` catches `/admin*` + `/api/admin/*` with the `authentik@docker`
-  forward-auth middleware
-- `gograb-public` catches everything else without auth
-
-Both terminate TLS via the `cloudflare` certresolver (DNS-01 wildcard).
-Adjust hostnames + certresolver to your infra.
+The compose file ships a single Traefik router on `${GOGRAB_HOST}` — the Go
+app gates `/admin/*` + `/api/admin/*` internally via its session cookie, so
+no forward-auth middleware is needed.
 
 ## API
 
-**Admin** (Authentik forward-auth):
+**Admin** (session cookie required):
 
 | Method | Path                                       | Purpose |
 |--------|--------------------------------------------|---------|
@@ -153,10 +156,18 @@ Adjust hostnames + certresolver to your infra.
 | POST   | `/api/admin/requests/{id}/retrieve`        | Return ciphertext + wrapped_key, purge on success |
 | DELETE | `/api/admin/requests/{id}`                 | Cancel |
 | GET    | `/api/admin/auth/status`                   | Has credentials? PRF salt |
-| POST   | `/api/admin/auth/{register,login}/{begin,finish}` | WebAuthn ceremonies |
+| POST   | `/api/admin/auth/register/{begin,finish}`  | Add another authenticator to the current account |
 | GET    | `/api/admin/auth/credentials`              | List operator's credentials |
 | DELETE | `/api/admin/auth/credentials/{id}`         | Revoke (refuses last) |
+| POST   | `/api/admin/auth/logout`                   | Clear session cookie |
 | GET    | `/api/admin/audit`                         | Audit log |
+
+**Auth bootstrap** (no session required):
+
+| Method | Path                                       | Purpose |
+|--------|--------------------------------------------|---------|
+| POST   | `/api/admin/auth/signup/{begin,finish}`    | Create account + first authenticator; sets session cookie |
+| POST   | `/api/admin/auth/login/{begin,finish}`     | Authenticate existing account; sets session cookie + returns wrapped Master-KEK |
 
 **Public** (rate-limited + 404-backoff):
 

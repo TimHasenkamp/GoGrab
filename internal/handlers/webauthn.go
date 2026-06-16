@@ -3,12 +3,10 @@ package handlers
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/timhasenkamp/gograb/internal/audit"
 	"github.com/timhasenkamp/gograb/internal/auth"
@@ -240,7 +238,10 @@ func (d *Deps) AuthRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, credentialSummary(stored))
 }
 
-// --- login (unlock) -------------------------------------------------------
+// Login Begin/Finish moved to login.go — those endpoints no longer require an
+// existing auth context (they ARE the authentication path). The response
+// types loginBeginResponse and loginFinishResponse used by login.go are
+// declared below since multiple files reference them.
 
 type loginBeginResponse struct {
 	Options      json.RawMessage `json:"options"`
@@ -248,149 +249,10 @@ type loginBeginResponse struct {
 	PRFSaltB64   string          `json:"prf_salt_b64"`
 }
 
-// POST /api/admin/auth/login/begin
-func (d *Deps) AuthLoginBegin(w http.ResponseWriter, r *http.Request) {
-	if d.auth == nil {
-		writeError(w, http.StatusInternalServerError, "internal", "webauthn not configured")
-		return
-	}
-	u, ok := auth.FromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
-		return
-	}
-	op, err := d.getOrCreateOperator(r.Context(), u)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
-		return
-	}
-	creds, err := d.Queries.ListCredentialsByOperator(r.Context(), op.ID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "list failed")
-		return
-	}
-	if len(creds) == 0 {
-		writeError(w, http.StatusConflict, "no_credentials", "register a credential first")
-		return
-	}
-	user := gogwebauthn.NewOperator(op, creds)
-	assertion, sessionData, err := d.auth.WebAuthn.WA().BeginLogin(user)
-	if err != nil {
-		d.Log.Error("begin login", "err", err)
-		writeError(w, http.StatusInternalServerError, "internal", "begin failed")
-		return
-	}
-	token, err := d.auth.WebAuthn.PackSession(sessionData)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "session pack failed")
-		return
-	}
-	optsBytes, err := json.Marshal(assertion)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "marshal options")
-		return
-	}
-	writeJSON(w, http.StatusOK, loginBeginResponse{
-		Options:      optsBytes,
-		SessionToken: token,
-		PRFSaltB64:   base64.RawURLEncoding.EncodeToString(op.PrfSalt),
-	})
-}
-
-type loginFinishBody struct {
-	CredentialResponse json.RawMessage `json:"credential_response"`
-	SessionToken       string          `json:"session_token"`
-}
-
 type loginFinishResponse struct {
 	CredentialIDB64  string `json:"credential_id_b64"`
 	WrappedMasterB64 string `json:"wrapped_master_b64"`
 	WrapIvB64        string `json:"wrap_iv_b64"`
-}
-
-// POST /api/admin/auth/login/finish
-func (d *Deps) AuthLoginFinish(w http.ResponseWriter, r *http.Request) {
-	if d.auth == nil {
-		writeError(w, http.StatusInternalServerError, "internal", "webauthn not configured")
-		return
-	}
-	u, ok := auth.FromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
-		return
-	}
-	op, err := d.getOrCreateOperator(r.Context(), u)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
-		return
-	}
-
-	var body loginFinishBody
-	if err := readJSON(r, 64*1024, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-	sessionData, err := d.auth.WebAuthn.UnpackSession(body.SessionToken)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_session", err.Error())
-		return
-	}
-
-	creds, err := d.Queries.ListCredentialsByOperator(r.Context(), op.ID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "list creds")
-		return
-	}
-	user := gogwebauthn.NewOperator(op, creds)
-	subReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "/", strings.NewReader(string(body.CredentialResponse)))
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal", "build subreq")
-		return
-	}
-	subReq.Header.Set("Content-Type", "application/json")
-
-	usedCred, err := d.auth.WebAuthn.WA().FinishLogin(user, *sessionData, subReq)
-	if err != nil {
-		d.Log.Warn("finish login", "err", err)
-		writeError(w, http.StatusUnauthorized, "webauthn_failed", err.Error())
-		return
-	}
-
-	// Identify which DB row this credential corresponds to.
-	stored, err := d.Queries.GetCredentialByCredentialID(r.Context(), usedCred.ID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusUnauthorized, "unknown_credential", "credential not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "internal", "credential lookup failed")
-		return
-	}
-	if stored.OperatorID != op.ID {
-		// Belongs to a different operator — defense-in-depth.
-		writeError(w, http.StatusUnauthorized, "unknown_credential", "credential not found")
-		return
-	}
-
-	// Persist updated sign_count + last_used_at.
-	if err := d.Queries.UpdateCredentialAfterUse(r.Context(), db.UpdateCredentialAfterUseParams{
-		ID:        stored.ID,
-		SignCount: int64(usedCred.Authenticator.SignCount),
-	}); err != nil {
-		d.Log.Warn("update sign_count", "err", err)
-	}
-
-	d.Audit.Log(r.Context(), audit.Entry{
-		Actor: "operator:" + u.Username, Action: "session.unlock",
-		OperatorID: &op.ID, Request: r,
-		Metadata: map[string]any{"credential_id": stored.ID.String(), "label": stored.Label},
-	})
-
-	writeJSON(w, http.StatusOK, loginFinishResponse{
-		CredentialIDB64:  base64.RawURLEncoding.EncodeToString(stored.CredentialID),
-		WrappedMasterB64: base64.RawURLEncoding.EncodeToString(stored.WrappedMaster),
-		WrapIvB64:        base64.RawURLEncoding.EncodeToString(stored.WrapIv),
-	})
 }
 
 // --- credential management ------------------------------------------------

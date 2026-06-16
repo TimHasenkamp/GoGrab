@@ -42,8 +42,7 @@ CI pipeline handles all updates.
 - Hetzner CAX (or any Linux VPS with Docker + docker compose plugin).
 - DNS A/AAAA-record for `gograb.example.com` → server IP.
 - Traefik (or an equivalent reverse proxy) listening on the `proxy`
-  external Docker network with TLS terminated. Authentik forward-auth
-  middleware registered as `authentik@docker`.
+  external Docker network with TLS terminated.
 - A user with `docker` group membership (or use `root`).
 
 ### 2. Lay out the app directory
@@ -68,17 +67,11 @@ GOGRAB_SESSION_SECRET=<head -c 32 /dev/urandom | basenc --base64url | tr -d '='>
 # --- Traefik integration ---
 TRAEFIK_CERTRESOLVER=letsencrypt          # name of your traefik cert resolver
 
-# --- Auth gate on /admin/* (PICK ONE) ---
-
-# (a) Forward-auth via an existing middleware (Authentik, Authelia, …)
-TRAEFIK_AUTH_MIDDLEWARE=authentik@docker
-
-# (b) No forward-auth — use the built-in dev shim instead.
-#     Set the username GoGrab pretends every admin request is from.
-#     WARNING: anyone reaching /admin is treated as that user. Only safe
-#     when the host is locked down at the network level.
-# TRAEFIK_AUTH_MIDDLEWARE=
-# GOGRAB_DEV_USER=tim
+# --- Auth ---
+# Login is built into the app. Visit /admin/signup once to create your
+# operator account; after that, /admin/login. Set this to false once you've
+# onboarded everyone who needs an account.
+GOGRAB_SIGNUP_ENABLED=true
 
 # --- Branding (optional) ---
 GOGRAB_BRAND_NAME=GoGrab
@@ -100,25 +93,25 @@ derives `GOGRAB_PUBLIC_BASE_URL`, `GOGRAB_RP_ID`, `GOGRAB_RP_ORIGINS` and
 the Traefik rules from it. Required env vars (compose refuses to start
 without them): `GOGRAB_HOST`, `POSTGRES_PASSWORD`, `GOGRAB_SESSION_SECRET`.
 
-### Auth modes
+### Auth
 
-The compose file is auth-agnostic. Two supported modes:
+GoGrab handles auth itself — no external IDP needed.
 
-| Mode | Setup | Use when |
-|---|---|---|
-| **Forward-auth (recommended)** | `TRAEFIK_AUTH_MIDDLEWARE=authentik@docker` or any other Traefik middleware that injects `X-Authentik-Username`. | You already run Authentik / Authelia / oauth2-proxy / similar. |
-| **Dev shim** | `TRAEFIK_AUTH_MIDDLEWARE=` (empty) **+** `GOGRAB_DEV_USER=youruser` | Single-user self-host where you fully trust the network. Skip Authentik entirely. |
+- `/admin/signup` creates an operator account. The first request from a fresh
+  install is the one where you become the admin: pick a username, register
+  a WebAuthn authenticator (YubiKey, Passkey, Hello…), get a session cookie.
+- `/admin/login` brings an existing account back. Same authenticator → session
+  cookie → unlocked Master-KEK.
+- The session cookie is HMAC-signed with `GOGRAB_SESSION_SECRET`, HttpOnly,
+  Secure, SameSite=Lax, 30-day rolling expiry.
+- After you've onboarded all the operator accounts you want, flip
+  `GOGRAB_SIGNUP_ENABLED=false` and `docker compose up -d` to close
+  `/admin/signup` to the public. Existing accounts keep working; you can still
+  add more authenticators to existing accounts via `/admin/security`.
 
-`TRAEFIK_AUTH_MIDDLEWARE` empty means no Traefik middleware is wired
-between the public internet and `/admin/*`. **You must combine it with
-`GOGRAB_DEV_USER`** (Go server treats every request as that fixed
-user) or expect every `/admin` hit to 401, because the auth middleware
-in the binary refuses to honor missing `X-Authentik-Username` headers.
-
-For setting up the Authentik side (Provider, Application, Outpost), see
-[the Authentik docs](https://docs.goauthentik.io/docs/providers/proxy/)
-— what you need is a Proxy Provider in "Forward Auth (single application)"
-mode pointing at `https://${GOGRAB_HOST}`.
+Until you set `GOGRAB_SIGNUP_ENABLED=false`, `/admin/signup` is reachable on
+the public internet but rate-limited (default 3 attempts per source IP per
+hour, see `GOGRAB_SIGNUP_RATE_PER_HOUR`).
 
 ### 3. GHCR pull access
 
@@ -146,8 +139,10 @@ docker compose up -d
 docker compose logs -f app   # watch for "listening" + "webauthn ready"
 ```
 
-Open `https://gograb.example.com/admin` → Authentik gates → `/admin/setup`
-→ register your first YubiKey.
+Open `https://gograb.example.com/admin/signup` → pick a username → register
+your first authenticator → you're logged in. Then go straight to
+`/admin/security` and add a **backup authenticator** before doing anything
+else (losing your only key locks you out permanently — there is no reset).
 
 ## GitHub secrets to set
 

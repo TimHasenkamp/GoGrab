@@ -159,6 +159,31 @@ export const auditApi = {
 
 export const authApi = {
   status: () => call<AuthStatus>('GET', '/api/admin/auth/status'),
+
+  // Signup: create an account and register its first authenticator. The
+  // server issues a session cookie on a successful finish.
+  signupBegin: (body: { username: string; email: string }) =>
+    call<RegisterBeginResponse>('POST', '/api/admin/auth/signup/begin', body),
+  signupFinish: (body: {
+    username: string;
+    credential_response: unknown;
+    session_token: string;
+    label: string;
+    wrapped_master_b64: string;
+    wrap_iv_b64: string;
+  }) => call<CredentialSummary>('POST', '/api/admin/auth/signup/finish', body),
+
+  // Login: authenticate an existing account. The server issues a session
+  // cookie on success and returns the wrapped Master-KEK for client-side
+  // unlocking.
+  loginBegin: (body: { username: string }) =>
+    call<LoginBeginResponse>('POST', '/api/admin/auth/login/begin', body),
+  loginFinish: (body: { username: string; credential_response: unknown; session_token: string }) =>
+    call<LoginFinishResponse>('POST', '/api/admin/auth/login/finish', body),
+
+  logout: () => call<void>('POST', '/api/admin/auth/logout', {}),
+
+  // Adding more credentials AFTER the initial signup — requires a session.
   registerBegin: () =>
     call<RegisterBeginResponse>('POST', '/api/admin/auth/register/begin', {}),
   registerFinish: (body: {
@@ -168,9 +193,7 @@ export const authApi = {
     wrapped_master_b64: string;
     wrap_iv_b64: string;
   }) => call<CredentialSummary>('POST', '/api/admin/auth/register/finish', body),
-  loginBegin: () => call<LoginBeginResponse>('POST', '/api/admin/auth/login/begin', {}),
-  loginFinish: (body: { credential_response: unknown; session_token: string }) =>
-    call<LoginFinishResponse>('POST', '/api/admin/auth/login/finish', body),
+
   listCredentials: () =>
     call<CredentialSummary[]>('GET', '/api/admin/auth/credentials'),
   deleteCredential: (id: string) =>

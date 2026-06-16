@@ -151,7 +151,7 @@
   <meta name="robots" content="noindex" />
 </svelte:head>
 
-<main class="wrap" style:--brand-color={meta?.branding.color || '#0f172a'}>
+<main class="wrap" style:--brand-color={meta?.branding.color || null}>
   <header class="brand">
     {#if meta?.branding.logo_url}
       <img src={meta.branding.logo_url} alt="" class="brand-logo" />
@@ -407,15 +407,17 @@
     --c-backdrop: rgba(10, 10, 15, 0.75);
   }
   :global(:root[data-theme='light']) {
-    --c-bg: #ffffff;
-    --c-fg: #18181b;
-    --c-muted: #71717a;
-    --c-card: #fafafa;
-    --c-border: #e4e4e7;
-    --c-border-strong: #d4d4d8;
+    /* Match the admin's softened light palette: warm off-white bg with
+       white cards on top, near-black-but-not-quite text. */
+    --c-bg: #f6f6f4;
+    --c-fg: #27272a;
+    --c-muted: #57575f;
+    --c-card: #ffffff;
+    --c-border: #e5e5e2;
+    --c-border-strong: #d0d0cd;
     --c-accent: #0891b2;
     --c-accent-hover: #0e7490;
-    --c-accent-glow: rgba(8, 145, 178, 0.2);
+    --c-accent-glow: rgba(8, 145, 178, 0.18);
     --c-success: #16a34a;
     --c-warning: #b45309;
     --c-danger: #dc2626;
@@ -681,7 +683,12 @@
     background: var(--c-accent-hover);
     box-shadow: 0 0 0 1px var(--c-accent-glow), 0 8px 28px -8px var(--c-accent-glow);
   }
-  .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-submit:disabled {
+    background: color-mix(in srgb, var(--brand-color, var(--c-accent)) 18%, transparent);
+    color: var(--c-muted);
+    cursor: not-allowed;
+    box-shadow: inset 0 0 0 1px var(--c-border-strong);
+  }
 
   .note {
     margin-top: 1rem;

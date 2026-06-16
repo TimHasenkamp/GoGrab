@@ -45,6 +45,9 @@ type Deps struct {
 
 	// auth is attached by WithAuth once the WebAuthn service is constructed.
 	auth *AuthDeps
+	// sessionDeps is attached by WithSession; carries the cookie manager and
+	// signup gate. Nil during early startup before WithSession is called.
+	sessionDeps *SessionDeps
 }
 
 func New(

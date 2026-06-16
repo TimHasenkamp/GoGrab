@@ -1,9 +1,10 @@
+/* Geist via Google Fonts. Variable font, swap display for fast first paint.
+   @import must precede all other at-rules per CSS spec; PostCSS enforces it. */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Geist via Google Fonts. Variable font, swap display for fast first paint. */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
 
 /* ----------------------------------------------------------------
    Design tokens. Dark is the default. data-theme="light" on <html>
@@ -35,17 +36,21 @@
 }
 
 :root[data-theme='light'] {
-  --background: #ffffff;
-  --foreground: #18181b;
-  --card: #fafafa;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --border-strong: #d4d4d8;
-  --primary: #18181b;
-  --accent: #0891b2;          /* darker cyan for AA contrast on white */
+  /* Warm off-white background with white cards on top — pure #ffffff bg
+     with near-black text feels harsh ("kantig hell"); softening the bg and
+     the text drops the contrast from ~21:1 to ~13:1, still comfortably above
+     WCAG AAA, but easier on the eyes for sustained reading. */
+  --background: #f6f6f4;
+  --foreground: #27272a;
+  --card: #ffffff;
+  --muted: #ececea;
+  --muted-foreground: #57575f;
+  --border: #e5e5e2;
+  --border-strong: #d0d0cd;
+  --primary: #27272a;
+  --accent: #0891b2;          /* darker cyan for AA contrast on light bg */
   --accent-hover: #0e7490;
-  --accent-glow: rgba(8, 145, 178, 0.2);
+  --accent-glow: rgba(8, 145, 178, 0.18);
   --accent-on: #ffffff;
   --ring: #0891b2;
 
