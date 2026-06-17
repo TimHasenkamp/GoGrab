@@ -173,15 +173,19 @@ func (d *Deps) AuthRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	if body.Label == "" {
 		body.Label = "Security Key"
 	}
-	wrappedMaster, err := decodeB64(body.WrappedMasterB64)
-	if err != nil || len(wrappedMaster) < 16 || len(wrappedMaster) > 256 {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrapped_master_b64")
-		return
-	}
-	wrapIv, err := decodeB64(body.WrapIvB64)
-	if err != nil || len(wrapIv) != 12 {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrap_iv_b64 (need 12 bytes)")
-		return
+	var wrappedMaster, wrapIv []byte
+	if body.WrappedMasterB64 != "" {
+		var err error
+		wrappedMaster, err = decodeB64(body.WrappedMasterB64)
+		if err != nil || len(wrappedMaster) < 16 || len(wrappedMaster) > 256 {
+			writeError(w, http.StatusBadRequest, "bad_request", "invalid wrapped_master_b64")
+			return
+		}
+		wrapIv, err = decodeB64(body.WrapIvB64)
+		if err != nil || len(wrapIv) != 12 {
+			writeError(w, http.StatusBadRequest, "bad_request", "invalid wrap_iv_b64 (need 12 bytes)")
+			return
+		}
 	}
 
 	sessionData, err := d.auth.WebAuthn.UnpackSession(body.SessionToken)

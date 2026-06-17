@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { authApi, type ApiError, type CredentialSummary } from '$lib/api';
   import { session } from '$lib/session.svelte';
-  import { register, b64urlToBytes } from '$lib/webauthn';
+  import { register, authenticate, b64urlToBytes } from '$lib/webauthn';
   import { relativeTime, absoluteTime } from '$lib/format';
   import { toast } from '$lib/toast.svelte';
   import { confirmStore } from '$lib/confirm.svelte';
@@ -43,16 +43,37 @@
       const salt = b64urlToBytes(begin.prf_salt_b64);
       const { response, prfOutput } = await register(salt, begin.options);
 
-      // Re-wrap the existing in-memory master KEK with the new key's PRF output.
-      const { wrappedMasterB64, wrapIvB64 } = await session.wrapExistingMaster(prfOutput);
-
-      await authApi.registerFinish({
-        credential_response: response,
-        session_token: begin.session_token,
-        label: label.trim() || 'YubiKey Backup',
-        wrapped_master_b64: wrappedMasterB64,
-        wrap_iv_b64: wrapIvB64
-      });
+      if (prfOutput) {
+        // One-shot: PRF available during create()
+        const { wrappedMasterB64, wrapIvB64 } = await session.wrapExistingMaster(prfOutput);
+        await authApi.registerFinish({
+          credential_response: response,
+          session_token: begin.session_token,
+          label: label.trim() || 'YubiKey Backup',
+          wrapped_master_b64: wrappedMasterB64,
+          wrap_iv_b64: wrapIvB64
+        });
+      } else {
+        // Two-shot: PRF not returned during create() — save credential first,
+        // then collect PRF via a second assertion.
+        const cred = await authApi.registerFinish({
+          credential_response: response,
+          session_token: begin.session_token,
+          label: label.trim() || 'YubiKey Backup',
+          wrapped_master_b64: '',
+          wrap_iv_b64: ''
+        });
+        toast.info('Noch ein Touch nötig, um die Verschlüsselung einzurichten…');
+        const loginData = await authApi.loginBegin({ username: session.username! });
+        const prfSalt = b64urlToBytes(loginData.prf_salt_b64);
+        const { prfOutput: prf } = await authenticate(prfSalt, loginData.options);
+        const { wrappedMasterB64, wrapIvB64 } = await session.wrapExistingMaster(prf);
+        await authApi.signupSetMaster({
+          credential_id: cred.id,
+          wrapped_master_b64: wrappedMasterB64,
+          wrap_iv_b64: wrapIvB64
+        });
+      }
 
       label = 'YubiKey Backup';
       await refresh();
