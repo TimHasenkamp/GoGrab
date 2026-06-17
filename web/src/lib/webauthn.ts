@@ -101,10 +101,18 @@ function encodeAssertion(cred: PublicKeyCredential): unknown {
   };
 }
 
-export interface CeremonyResult {
-  response: unknown;                       // JSON ready to POST to /finish
-  prfOutput: Uint8Array<ArrayBuffer> | null; // null only from register() when PRF not evaluated during create()
+export interface RegisterResult {
+  response: unknown;
+  prfOutput: Uint8Array<ArrayBuffer> | null; // null when PRF not evaluated during create()
 }
+
+export interface AuthResult {
+  response: unknown;
+  prfOutput: Uint8Array<ArrayBuffer>; // always non-null; throws if PRF missing
+}
+
+/** @deprecated use RegisterResult or AuthResult */
+export type CeremonyResult = AuthResult;
 
 function extractPRFOutput(cred: PublicKeyCredential): Uint8Array<ArrayBuffer> | null {
   const ext = cred.getClientExtensionResults() as Record<string, unknown>;
@@ -121,7 +129,7 @@ function extractPRFOutput(cred: PublicKeyCredential): Uint8Array<ArrayBuffer> | 
 /** Drive a registration ceremony. Adds `prf` extension with `salt` as the
  * eval input. Returns the JSON response for the server + the PRF output for
  * deriving the wrap key client-side. */
-export async function register(salt: Uint8Array<ArrayBuffer>, optionsJSON: unknown): Promise<CeremonyResult> {
+export async function register(salt: Uint8Array<ArrayBuffer>, optionsJSON: unknown): Promise<RegisterResult> {
   const opts = decodeCreationOptions(optionsJSON);
   // Merge in the PRF extension; the server doesn't dictate this since it
   // doesn't need to know the salt (it just sends it as a hint).
@@ -136,7 +144,7 @@ export async function register(salt: Uint8Array<ArrayBuffer>, optionsJSON: unkno
 }
 
 /** Drive an authentication ceremony with PRF extension. */
-export async function authenticate(salt: Uint8Array<ArrayBuffer>, optionsJSON: unknown): Promise<CeremonyResult> {
+export async function authenticate(salt: Uint8Array<ArrayBuffer>, optionsJSON: unknown): Promise<AuthResult> {
   const opts = decodeAssertionOptions(optionsJSON);
   opts.extensions = {
     ...(opts.extensions ?? {}),
