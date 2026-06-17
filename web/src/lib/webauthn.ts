@@ -102,20 +102,19 @@ function encodeAssertion(cred: PublicKeyCredential): unknown {
 }
 
 export interface CeremonyResult {
-  response: unknown;                  // JSON ready to POST to /finish
-  prfOutput: Uint8Array<ArrayBuffer>; // 32-byte PRF eval output
+  response: unknown;                       // JSON ready to POST to /finish
+  prfOutput: Uint8Array<ArrayBuffer> | null; // null only from register() when PRF not evaluated during create()
 }
 
-function extractPRFOutput(cred: PublicKeyCredential): Uint8Array<ArrayBuffer> {
+function extractPRFOutput(cred: PublicKeyCredential): Uint8Array<ArrayBuffer> | null {
   const ext = cred.getClientExtensionResults() as Record<string, unknown>;
-  const prf = (ext.prf ?? {}) as { results?: { first?: ArrayBuffer } };
+  const prf = (ext.prf ?? {}) as { enabled?: boolean; results?: { first?: ArrayBuffer } };
   const first = prf.results?.first;
   if (!first) {
-    throw new Error(
-      'Dein Authenticator unterstützt die PRF-Extension nicht. Stelle sicher, dass dein YubiKey die Firmware 5.7+ hat (oder nutze einen anderen kompatiblen Authenticator).'
-    );
+    // null = PRF supported but not evaluated in this ceremony (create() on some Linux+browser combos).
+    // Callers that require PRF (authenticate) must throw on null.
+    return null;
   }
-  // first is ArrayBuffer (not SharedArrayBuffer) per the WebAuthn spec.
   return new Uint8Array(first) as Uint8Array<ArrayBuffer>;
 }
 
@@ -146,5 +145,11 @@ export async function authenticate(salt: Uint8Array<ArrayBuffer>, optionsJSON: u
 
   const cred = (await navigator.credentials.get({ publicKey: opts })) as PublicKeyCredential | null;
   if (!cred) throw new Error('Authentifizierung abgebrochen');
-  return { response: encodeAssertion(cred), prfOutput: extractPRFOutput(cred) };
+  const prfOutput = extractPRFOutput(cred);
+  if (!prfOutput) {
+    throw new Error(
+      'PRF-Auswertung fehlgeschlagen. Stelle sicher, dass dein Authenticator hmac-secret unterstützt (YubiKey Security Key / YubiKey 5 mit Firmware 5.2+) und dass du deinen PIN eingegeben hast.'
+    );
+  }
+  return { response: encodeAssertion(cred), prfOutput };
 }

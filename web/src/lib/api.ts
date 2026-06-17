@@ -172,6 +172,11 @@ export const authApi = {
     wrapped_master_b64: string;
     wrap_iv_b64: string;
   }) => call<CredentialSummary>('POST', '/api/admin/auth/signup/finish', body),
+  signupSetMaster: (body: {
+    credential_id: string;
+    wrapped_master_b64: string;
+    wrap_iv_b64: string;
+  }) => call<void>('POST', '/api/admin/auth/signup/set-master', body),
 
   // Login: authenticate an existing account. The server issues a session
   // cookie on success and returns the wrapped Master-KEK for client-side

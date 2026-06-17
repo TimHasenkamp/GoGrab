@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/timhasenkamp/gograb/internal/audit"
@@ -193,15 +194,22 @@ func (d *Deps) AuthSignupFinish(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_username", "invalid username")
 		return
 	}
-	wrappedMaster, err := decodeB64(body.WrappedMasterB64)
-	if err != nil || len(wrappedMaster) < 16 || len(wrappedMaster) > 256 {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrapped_master_b64")
-		return
-	}
-	wrapIv, err := decodeB64(body.WrapIvB64)
-	if err != nil || len(wrapIv) != 12 {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrap_iv_b64")
-		return
+	// wrapped_master is optional: some authenticator+browser combinations on Linux
+	// only return PRF during get() (assertion), not create() (registration).
+	// If omitted, the client must call /signup/set-master after a second assertion.
+	var wrappedMaster, wrapIv []byte
+	if body.WrappedMasterB64 != "" {
+		var err error
+		wrappedMaster, err = decodeB64(body.WrappedMasterB64)
+		if err != nil || len(wrappedMaster) < 16 || len(wrappedMaster) > 256 {
+			writeError(w, http.StatusBadRequest, "bad_request", "invalid wrapped_master_b64")
+			return
+		}
+		wrapIv, err = decodeB64(body.WrapIvB64)
+		if err != nil || len(wrapIv) != 12 {
+			writeError(w, http.StatusBadRequest, "bad_request", "invalid wrap_iv_b64")
+			return
+		}
 	}
 
 	op, err := d.Queries.GetOperatorByUsername(r.Context(), body.Username)
@@ -412,6 +420,78 @@ func (d *Deps) AuthLoginFinish(w http.ResponseWriter, r *http.Request) {
 		WrappedMasterB64: base64.RawURLEncoding.EncodeToString(stored.WrappedMaster),
 		WrapIvB64:        base64.RawURLEncoding.EncodeToString(stored.WrapIv),
 	})
+}
+
+// --- signup set-master (two-shot PRF fallback) --------------------------------
+
+type signupSetMasterBody struct {
+	CredentialID     string `json:"credential_id"`
+	WrappedMasterB64 string `json:"wrapped_master_b64"`
+	WrapIvB64        string `json:"wrap_iv_b64"`
+}
+
+// POST /api/admin/auth/signup/set-master
+//
+// Second step of the two-shot signup path: the client already registered the
+// credential via /signup/finish (no master key), then obtained PRF via an
+// assertion and sends the wrapped master here. Requires a session cookie that
+// was issued by /signup/finish.
+func (d *Deps) AuthSignupSetMaster(w http.ResponseWriter, r *http.Request) {
+	if d.auth == nil || d.sessionDeps == nil {
+		writeError(w, http.StatusInternalServerError, "internal", "auth not configured")
+		return
+	}
+	u, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
+		return
+	}
+	op, err := d.Queries.GetOperatorByUsername(r.Context(), u.Username)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", "operator lookup failed")
+		return
+	}
+
+	var body signupSetMasterBody
+	if err := readJSON(r, 4096, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+
+	credID, err := uuid.Parse(body.CredentialID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid credential_id")
+		return
+	}
+	wrappedMaster, err := decodeB64(body.WrappedMasterB64)
+	if err != nil || len(wrappedMaster) < 16 || len(wrappedMaster) > 256 {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrapped_master_b64")
+		return
+	}
+	wrapIv, err := decodeB64(body.WrapIvB64)
+	if err != nil || len(wrapIv) != 12 {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid wrap_iv_b64 (need 12 bytes)")
+		return
+	}
+
+	if _, err := d.Queries.SetCredentialWrappedMaster(r.Context(), db.SetCredentialWrappedMasterParams{
+		ID:            credID,
+		OperatorID:    op.ID,
+		WrappedMaster: wrappedMaster,
+		WrapIv:        wrapIv,
+	}); err != nil {
+		d.Log.Error("set credential wrapped master", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal", "store failed")
+		return
+	}
+
+	d.Audit.Log(r.Context(), audit.Entry{
+		Actor: "operator:" + u.Username, Action: "credential.set_master",
+		OperatorID: &op.ID, Request: r,
+		Metadata: map[string]any{"credential_id": credID.String()},
+	})
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // POST /api/admin/auth/logout

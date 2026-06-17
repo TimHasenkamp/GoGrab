@@ -38,6 +38,7 @@ type Querier interface {
 	MarkRetrievedAndPurge(ctx context.Context, id uuid.UUID) (MarkRetrievedAndPurgeRow, error)
 	PruneAuditOlderThan(ctx context.Context, occurredAt pgtype.Timestamptz) (int64, error)
 	SubmitCiphertext(ctx context.Context, arg SubmitCiphertextParams) (Request, error)
+	SetCredentialWrappedMaster(ctx context.Context, arg SetCredentialWrappedMasterParams) (int64, error)
 	UpdateCredentialAfterUse(ctx context.Context, arg UpdateCredentialAfterUseParams) error
 	UpsertOperator(ctx context.Context, arg UpsertOperatorParams) (Operator, error)
 }

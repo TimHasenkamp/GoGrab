@@ -57,6 +57,14 @@ SET sign_count = $2,
     last_used_at = now()
 WHERE id = $1;
 
+-- name: SetCredentialWrappedMaster :execrows
+-- Only updates if wrapped_master IS NULL (signup two-shot path).
+UPDATE webauthn_credentials
+SET wrapped_master = $3,
+    wrap_iv        = $4
+WHERE id = $1 AND operator_id = $2
+  AND wrapped_master IS NULL;
+
 -- name: DeleteCredential :exec
 DELETE FROM webauthn_credentials
 WHERE id = $1 AND operator_id = $2;

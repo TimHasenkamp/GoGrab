@@ -223,6 +223,7 @@ func buildRouter(cfg config.Config, deps *handlers.Deps, log *slog.Logger) http.
 	mux.Handle("POST /api/admin/auth/login/finish", http.HandlerFunc(deps.AuthLoginFinish))
 	mux.Handle("POST /api/admin/auth/signup/begin", signupRL.Middleware(http.HandlerFunc(deps.AuthSignupBegin)))
 	mux.Handle("POST /api/admin/auth/signup/finish", signupRL.Middleware(http.HandlerFunc(deps.AuthSignupFinish)))
+	mux.Handle("POST /api/admin/auth/signup/set-master", admin(http.HandlerFunc(deps.AuthSignupSetMaster)))
 
 	mux.Handle("GET /api/admin/audit", admin(http.HandlerFunc(deps.AdminAudit)))
 

@@ -683,6 +683,26 @@ func (q *Queries) UpdateCredentialAfterUse(ctx context.Context, arg UpdateCreden
 	return err
 }
 
+const setCredentialWrappedMaster = `-- name: SetCredentialWrappedMaster :execrows
+UPDATE webauthn_credentials
+SET wrapped_master = $3,
+    wrap_iv        = $4
+WHERE id = $1 AND operator_id = $2
+  AND wrapped_master IS NULL
+`
+
+type SetCredentialWrappedMasterParams struct {
+	ID            uuid.UUID
+	OperatorID    uuid.UUID
+	WrappedMaster []byte
+	WrapIv        []byte
+}
+
+func (q *Queries) SetCredentialWrappedMaster(ctx context.Context, arg SetCredentialWrappedMasterParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setCredentialWrappedMaster, arg.ID, arg.OperatorID, arg.WrappedMaster, arg.WrapIv)
+	return result.RowsAffected(), err
+}
+
 const upsertOperator = `-- name: UpsertOperator :one
 INSERT INTO operators (username, email, prf_salt)
 VALUES ($1, $2, $3)

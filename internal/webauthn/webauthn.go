@@ -45,7 +45,7 @@ func New(cfg Config) (*Service, error) {
 		RPID:          cfg.RPID,
 		RPOrigins:     cfg.RPOrigins,
 		AuthenticatorSelection: protocol.AuthenticatorSelection{
-			UserVerification: protocol.VerificationPreferred,
+			UserVerification: protocol.VerificationRequired,
 		},
 	})
 	if err != nil {

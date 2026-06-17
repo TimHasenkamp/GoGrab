@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { authApi, type ApiError } from '$lib/api';
   import { session } from '$lib/session.svelte';
-  import { register, b64urlToBytes } from '$lib/webauthn';
+  import { register, authenticate, b64urlToBytes } from '$lib/webauthn';
   import { toast } from '$lib/toast.svelte';
   import Icon from '$lib/Icon.svelte';
   import { theme } from '$lib/theme.svelte';
@@ -27,15 +27,41 @@
       const begin = await authApi.signupBegin({ username: u, email: email.trim() });
       const salt = b64urlToBytes(begin.prf_salt_b64);
       const { response, prfOutput } = await register(salt, begin.options);
-      const { wrappedMasterB64, wrapIvB64 } = await session.createMasterAndWrap(prfOutput);
-      await authApi.signupFinish({
-        username: u,
-        credential_response: response,
-        session_token: begin.session_token,
-        label: label.trim() || 'Primary',
-        wrapped_master_b64: wrappedMasterB64,
-        wrap_iv_b64: wrapIvB64
-      });
+
+      if (prfOutput) {
+        // One-shot path: PRF returned during create() — wrap master key immediately.
+        const { wrappedMasterB64, wrapIvB64 } = await session.createMasterAndWrap(prfOutput);
+        await authApi.signupFinish({
+          username: u,
+          credential_response: response,
+          session_token: begin.session_token,
+          label: label.trim() || 'Primary',
+          wrapped_master_b64: wrappedMasterB64,
+          wrap_iv_b64: wrapIvB64
+        });
+      } else {
+        // Two-shot path: PRF not returned during create() (common on Linux).
+        // Save credential first, then get PRF via a second assertion touch.
+        const cred = await authApi.signupFinish({
+          username: u,
+          credential_response: response,
+          session_token: begin.session_token,
+          label: label.trim() || 'Primary',
+          wrapped_master_b64: '',
+          wrap_iv_b64: ''
+        });
+        toast.info('Noch ein Touch nötig, um die Verschlüsselung einzurichten…');
+        const loginData = await authApi.loginBegin({ username: u });
+        const prfSalt = b64urlToBytes(loginData.prf_salt_b64);
+        const { prfOutput: prf } = await authenticate(prfSalt, loginData.options);
+        const { wrappedMasterB64, wrapIvB64 } = await session.createMasterAndWrap(prf);
+        await authApi.signupSetMaster({
+          credential_id: cred.id,
+          wrapped_master_b64: wrappedMasterB64,
+          wrap_iv_b64: wrapIvB64
+        });
+      }
+
       session.username = u;
       session.hasCredentials = true;
       session.prfSaltB64 = begin.prf_salt_b64;
